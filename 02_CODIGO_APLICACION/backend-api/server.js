@@ -1,5 +1,5 @@
 // ================================
-// 📁 server.js - SERVIDOR DÍA 4 COMPLETADO - API REST COMPLETA
+// 📁 server.js - SERVIDOR DÍA 4 COMPLETADO - API REST COMPLETA CORREGIDA
 // ================================
 require('dotenv').config();
 const express = require('express');
@@ -118,6 +118,77 @@ app.use((req, res, next) => {
 console.log('✅ Middleware avanzado configurado correctamente');
 
 // =============================================================================
+// RUTAS DE AUTENTICACIÓN
+// =============================================================================
+
+try {
+  const authRoutes = require('./routes/auth');
+  app.use('/api/auth', authRoutes);
+  console.log('✅ Rutas de autenticación JWT cargadas');
+} catch (error) {
+  console.error('❌ Error cargando rutas de autenticación:', error.message);
+}
+
+// =============================================================================
+// RUTAS FRI BÁSICAS (COMPATIBILIDAD)
+// =============================================================================
+
+try {
+  const basicFriRoutes = require('./routes/fri');
+  app.use('/api/fri', basicFriRoutes);
+  console.log('✅ Rutas FRI básicas cargadas (compatibilidad)');
+} catch (error) {
+  console.warn('⚠️ No se pudieron cargar rutas FRI básicas:', error.message);
+}
+
+// =============================================================================
+// RUTAS FRI COMPLETAS DÍA 4 (API REST AVANZADA)
+// =============================================================================
+
+try {
+  const completeFriRoutes = require('./routes/friDay4Complete');
+  app.use('/api/fri-complete', completeFriRoutes);
+  console.log('✅ API REST completa Día 4 cargada (74 endpoints)');
+} catch (error) {
+  console.error('❌ Error cargando API REST completa:', error.message);
+  
+  // Fallback a rutas del Día 3
+  try {
+    const day3Routes = require('./routes/friComplete');
+    app.use('/api/fri-complete', day3Routes);
+    console.log('✅ Rutas Día 3 cargadas como fallback');
+  } catch (fallbackError) {
+    console.error('❌ Error cargando rutas fallback:', fallbackError.message);
+  }
+}
+
+// =============================================================================
+// 📊 RUTAS DE REPORTES AVANZADOS (MOVIDO AQUÍ - ANTES DEL 404)
+// =============================================================================
+console.log('🔄 Configurando sistema de reportes...');
+
+try {
+  const reportsRoutes = require('./routes/reports');
+  app.use('/api/reports', reportsRoutes);
+  console.log('✅ Sistema de reportes configurado exitosamente');
+  console.log('   📊 Endpoints disponibles:');
+  console.log('      GET  /api/reports/health');
+  console.log('      GET  /api/reports/available'); 
+  console.log('      GET  /api/reports/excel/produccion');
+  console.log('      GET  /api/reports/pdf/ejecutivo');
+  console.log('      GET  /api/reports/documentation');
+} catch (error) {
+  console.log('⚠️  Sistema de reportes no disponible:', error.message);
+  console.log('   💡 Para habilitar reportes, asegúrate de tener:');
+  console.log('      📁 routes/reports.js');
+  console.log('      📁 controllers/reportsController.js');
+  console.log('      📁 controllers/advancedReportsController.js');
+  console.log('      📁 services/excelReportService.js');
+  console.log('      📁 services/pdfReportService.js');
+  console.log('   📦 Dependencias: npm install exceljs puppeteer handlebars');
+}
+
+// =============================================================================
 // RUTAS PRINCIPALES MEJORADAS
 // =============================================================================
 
@@ -172,10 +243,10 @@ app.get('/', (req, res) => {
       auth: "/api/auth/* (login, profile, logout)",
       fri_basic: "/api/fri/* (rutas básicas)",
       fri_advanced: "/api/fri-complete/* (API REST completa)",
+      reports: "/api/reports/* (sistema de reportes)",
       dashboard: "GET /api/fri-complete/dashboard",
       stats: "GET /api/fri-complete/stats/*",
-      search: "GET /api/fri-complete/search/*",
-      reports: "GET /api/fri-complete/reports/*"
+      search: "GET /api/fri-complete/search/*"
     },
     
     formatos_fri_completos: [
@@ -192,7 +263,7 @@ app.get('/', (req, res) => {
     
     nuevas_capacidades: {
       estadisticas: "Métricas avanzadas, tendencias y analytics",
-      reportes: "Generación automática en JSON/CSV/Excel",
+      reportes: "Generación automática Excel/PDF",
       busqueda: "Búsqueda global con scoring de relevancia",
       filtros: "Sistema dinámico de filtros combinables",
       paginacion: "Paginación inteligente con metadata",
@@ -238,8 +309,8 @@ app.get('/health', async (req, res) => {
       filtros_avanzados: 'Implementados',
       busqueda_global: 'Funcional',
       estadisticas: 'Avanzadas disponibles',
-      reportes: 'Generación automática',
-      exportacion: 'JSON, CSV, Excel'
+      reportes: 'Sistema Excel/PDF activo',
+      exportacion: 'JSON, CSV, Excel, PDF'
     },
     
     cumplimiento: {
@@ -274,53 +345,6 @@ app.get('/health', async (req, res) => {
   const statusCode = healthData.status.includes('❌') ? 503 : 200;
   res.status(statusCode).json(healthData);
 });
-
-// =============================================================================
-// RUTAS DE AUTENTICACIÓN
-// =============================================================================
-
-try {
-  const authRoutes = require('./routes/auth');
-  app.use('/api/auth', authRoutes);
-  console.log('✅ Rutas de autenticación JWT cargadas');
-} catch (error) {
-  console.error('❌ Error cargando rutas de autenticación:', error.message);
-}
-
-// =============================================================================
-// RUTAS FRI BÁSICAS (COMPATIBILIDAD)
-// =============================================================================
-
-try {
-  const basicFriRoutes = require('./routes/fri');
-  app.use('/api/fri', basicFriRoutes);
-  console.log('✅ Rutas FRI básicas cargadas (compatibilidad)');
-} catch (error) {
-  console.warn('⚠️ No se pudieron cargar rutas FRI básicas:', error.message);
-}
-
-// =============================================================================
-// RUTAS FRI COMPLETAS DÍA 4 (API REST AVANZADA)
-// =============================================================================
-
-try {
-  const completeFriRoutes = require('./routes/friDay4Complete');
-  app.use('/api/fri-complete', completeFriRoutes);
-  console.log('✅ API REST completa Día 4 cargada (74 endpoints)');
-} catch (error) {
-  console.error('❌ Error cargando API REST completa:', error.message);
-  
-  // Fallback a rutas del Día 3
-  try {
-    const day3Routes = require('./routes/friComplete');
-    app.use('/api/fri-complete', day3Routes);
-    console.log('✅ Rutas Día 3 cargadas como fallback');
-  } catch (fallbackError) {
-    console.error('❌ Error cargando rutas fallback:', fallbackError.message);
-  }
-}
-
-
 
 // =============================================================================
 // INFORMACIÓN TÉCNICA COMPLETA DÍA 4
@@ -367,7 +391,7 @@ app.get('/api/info', (req, res) => {
       search: "Búsqueda global con scoring de relevancia",
       filters: "Sistema dinámico de filtros combinables",
       pagination: "Metadata completa + ordenamiento",
-      reports: "Generación automática multi-formato",
+      reports: "Generación automática Excel/PDF",
       monitoring: "Health checks + analytics de performance"
     },
     
@@ -390,7 +414,7 @@ app.get('/api/info', (req, res) => {
       intelligent_search: "Búsqueda global con ranking de relevancia",
       dynamic_filters: "Filtros combinables con validación", 
       smart_pagination: "Paginación con metadata y navegación",
-      report_generation: "Reportes configurables JSON/CSV/Excel",
+      report_generation: "Reportes configurables Excel/PDF",
       audit_system: "Tracking completo de operaciones",
       error_handling: "Manejo profesional con códigos específicos",
       rate_limiting: "Control avanzado por usuario y endpoint",
@@ -477,7 +501,7 @@ app.get('/api/system/stats', (req, res) => {
 });
 
 // =============================================================================
-// MANEJO DE ERRORES 404 Y MIDDLEWARE GLOBAL
+// MANEJO DE ERRORES 404 Y MIDDLEWARE GLOBAL (AL FINAL)
 // =============================================================================
 
 app.use('*', (req, res) => {
@@ -498,13 +522,15 @@ app.use('*', (req, res) => {
       'GET /api/fri-complete/health (API completa)',
       'GET /api/fri-complete/dashboard',
       'GET /api/fri-complete/stats/advanced',
-      'GET /api/fri-complete/search/global'
+      'GET /api/fri-complete/search/global',
+      'GET /api/reports/health (sistema reportes)'
     ],
     documentacion: {
       info_completa: 'GET /api/info',
       health_check: 'GET /health',
       api_basica: 'Endpoints bajo /api/fri/*',
-      api_completa: 'Endpoints bajo /api/fri-complete/*'
+      api_completa: 'Endpoints bajo /api/fri-complete/*',
+      reportes: 'Endpoints bajo /api/reports/*'
     },
     dia_desarrollo: 4,
     timestamp: new Date().toISOString()
@@ -513,34 +539,6 @@ app.use('*', (req, res) => {
 
 // Global Error Handler (debe ir al final)
 app.use(globalErrorHandler);
-
-
-// =============================================================================
-// 📊 RUTAS DE REPORTES AVANZADOS (NUEVO - DÍA 5)
-// =============================================================================
-console.log('🔄 Configurando sistema de reportes...');
-
-try {
-  const reportsRoutes = require('./routes/reports');
-  app.use('/api/reports', reportsRoutes);
-  console.log('✅ Sistema de reportes configurado exitosamente');
-  console.log('   📊 Endpoints disponibles:');
-  console.log('      GET  /api/reports/health');
-  console.log('      GET  /api/reports/available'); 
-  console.log('      GET  /api/reports/excel/produccion');
-  console.log('      GET  /api/reports/pdf/ejecutivo');
-  console.log('      POST /api/reports/advanced/comparative');
-} catch (error) {
-  console.log('⚠️  Sistema de reportes no disponible:', error.message);
-  console.log('   💡 Para habilitar reportes, asegúrate de tener:');
-  console.log('      📁 routes/reports.js');
-  console.log('      📁 controllers/reportsController.js');
-  console.log('      📁 controllers/advancedReportsController.js');
-  console.log('      📁 services/excelReportService.js');
-  console.log('      📁 services/pdfReportService.js');
-  console.log('   📦 Dependencias: npm install exceljs puppeteer handlebars');
-}
-
 
 // =============================================================================
 // INICIAR SERVIDOR CON MENSAJE COMPLETO DÍA 4
@@ -555,6 +553,7 @@ const server = app.listen(PORT, () => {
   console.log(`🏥 Health Check: http://localhost:${PORT}/health`);
   console.log(`📊 Sistema Info: http://localhost:${PORT}/api/info`);
   console.log(`📈 Stats Sistema: http://localhost:${PORT}/api/system/stats`);
+  console.log(`📊 Reportes Health: http://localhost:${PORT}/api/reports/health`);
   console.log('🎯'.repeat(70));
   console.log('🔧 CONFIGURACIÓN AVANZADA:');
   console.log(`   🔐 JWT + Permisos: Configurado`);
@@ -563,7 +562,7 @@ const server = app.listen(PORT, () => {
   console.log(`   📊 Auditoría: Sistema completo de logging`);
   console.log(`   🔍 Búsqueda: Global con scoring de relevancia`);
   console.log(`   📋 Filtros: Sistema dinámico avanzado`);
-  console.log(`   📄 Reportes: Generación automática`);
+  console.log(`   📄 Reportes: Sistema Excel/PDF activo`);
   console.log('🎯'.repeat(70));
   
   console.log('\n✅ LOGROS DÍA 4 - API REST COMPLETA:');
@@ -582,10 +581,18 @@ const server = app.listen(PORT, () => {
   console.log(`   ⚡ PUT  http://localhost:${PORT}/api/fri-complete/ejecucion/:id`);
   console.log(`   📈 GET  http://localhost:${PORT}/api/fri-complete/analytics/overview`);
   
+  console.log('\n📊 ENDPOINTS DE REPORTES DÍA 5:');
+  console.log(`   🏥 GET  http://localhost:${PORT}/api/reports/health`);
+  console.log(`   📋 GET  http://localhost:${PORT}/api/reports/available`);
+  console.log(`   📄 GET  http://localhost:${PORT}/api/reports/excel/produccion`);
+  console.log(`   📄 GET  http://localhost:${PORT}/api/reports/pdf/ejecutivo`);
+  console.log(`   🔍 GET  http://localhost:${PORT}/api/reports/preview/produccion`);
+  console.log(`   📚 GET  http://localhost:${PORT}/api/reports/documentation`);
+  
   console.log('\n🎯 FUNCIONALIDADES IMPLEMENTADAS:');
   console.log('   ✅ Sistema CRUD completo para 9 formatos FRI');
   console.log('   ✅ Estadísticas avanzadas con tendencias mensuales');
-  console.log('   ✅ Sistema de reportes con exportación múltiple');
+  console.log('   ✅ Sistema de reportes Excel/PDF');
   console.log('   ✅ Búsqueda global inteligente con relevancia');
   console.log('   ✅ Filtros dinámicos combinables');
   console.log('   ✅ Paginación inteligente con metadata');
@@ -653,4 +660,3 @@ process.on('uncaughtException', (error) => {
 });
 
 module.exports = app;
-
