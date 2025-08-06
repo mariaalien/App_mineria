@@ -320,6 +320,8 @@ try {
   }
 }
 
+
+
 // =============================================================================
 // INFORMACIÓN TÉCNICA COMPLETA DÍA 4
 // =============================================================================
@@ -512,6 +514,34 @@ app.use('*', (req, res) => {
 // Global Error Handler (debe ir al final)
 app.use(globalErrorHandler);
 
+
+// =============================================================================
+// 📊 RUTAS DE REPORTES AVANZADOS (NUEVO - DÍA 5)
+// =============================================================================
+console.log('🔄 Configurando sistema de reportes...');
+
+try {
+  const reportsRoutes = require('./routes/reports');
+  app.use('/api/reports', reportsRoutes);
+  console.log('✅ Sistema de reportes configurado exitosamente');
+  console.log('   📊 Endpoints disponibles:');
+  console.log('      GET  /api/reports/health');
+  console.log('      GET  /api/reports/available'); 
+  console.log('      GET  /api/reports/excel/produccion');
+  console.log('      GET  /api/reports/pdf/ejecutivo');
+  console.log('      POST /api/reports/advanced/comparative');
+} catch (error) {
+  console.log('⚠️  Sistema de reportes no disponible:', error.message);
+  console.log('   💡 Para habilitar reportes, asegúrate de tener:');
+  console.log('      📁 routes/reports.js');
+  console.log('      📁 controllers/reportsController.js');
+  console.log('      📁 controllers/advancedReportsController.js');
+  console.log('      📁 services/excelReportService.js');
+  console.log('      📁 services/pdfReportService.js');
+  console.log('   📦 Dependencias: npm install exceljs puppeteer handlebars');
+}
+
+
 // =============================================================================
 // INICIAR SERVIDOR CON MENSAJE COMPLETO DÍA 4
 // =============================================================================
@@ -623,3 +653,4 @@ process.on('uncaughtException', (error) => {
 });
 
 module.exports = app;
+
