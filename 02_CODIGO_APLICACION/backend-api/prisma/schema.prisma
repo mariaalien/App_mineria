@@ -1,0 +1,285 @@
+// schema.prisma - Modelos según Resolución 371/2024
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+// USUARIOS Y AUTENTICACIÓN
+model Usuario {
+  id                String   @id @default(uuid())
+  nombre            String
+  email             String   @unique
+  passwordHash      String   @map("password_hash")
+  rol               String   // 'OPERADOR', 'SUPERVISOR', 'ADMINISTRADOR'
+  isActive          Boolean  @default(true)
+  tituloMinero      String?  @map("titulo_minero")
+  municipio         String?
+  telefono          String?
+  estado            String   @default("ACTIVO")
+  ultimoAcceso      DateTime? @map("ultimo_acceso")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // Relaciones con FRIs (sin la línea problemática)
+  friProduccion           FRIProduccion[]
+  friInventarios          FRIInventarios[]
+  friParadas              FRIParadasProduccion[]
+  friEjecucion            FRIEjecucion[]
+  friMaquinariaTransporte FRIMaquinariaTransporte[]
+  friRegalias             FRIRegalias[]
+  friInventarioMaquinaria FRIInventarioMaquinaria[]
+  friCapacidadTecnologica FRICapacidadTecnologica[]
+  friProyecciones         FRIProyecciones[]
+
+  @@map("usuarios")
+}
+
+// TÍTULOS MINEROS
+model TituloMinero {
+  id                String   @id @default(uuid())
+  numeroTitulo      String   @unique @map("numero_titulo")
+  mineral           String
+  municipio         String
+  clasificacion     String   // 'PEQUEÑA', 'MEDIANA', 'GRAN_MINERIA', 'INTERES_NACIONAL'
+  estado            String   @default("ACTIVO")
+  fechaOtorgamiento DateTime? @map("fecha_otorgamiento")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@map("titulos_mineros")
+}
+
+// 1. FRI PRODUCCIÓN (MENSUAL)
+model FRIProduccion {
+  id                           String   @id @default(uuid())
+  fechaCorteInformacion        DateTime @map("fecha_corte_informacion")
+  mineral                      String
+  tituloMinero                 String   @map("titulo_minero")
+  municipioExtraccion          String?  @map("municipio_extraccion")
+  codigoMunicipioExtraccion    String?  @map("codigo_municipio_extraccion")
+  horasOperativas              Decimal? @map("horas_operativas") @db.Decimal(8,2)
+  cantidadProduccion           Decimal? @map("cantidad_produccion") @db.Decimal(15,4)
+  unidadMedidaProduccion       String?  @map("unidad_medida_produccion")
+  cantidadMaterialEntraPlanta  Decimal? @map("cantidad_material_entra_planta") @db.Decimal(15,4)
+  cantidadMaterialSalePlanta   Decimal? @map("cantidad_material_sale_planta") @db.Decimal(15,4)
+  masaUnitaria                 Decimal? @map("masa_unitaria") @db.Decimal(10,4)
+  
+  usuarioId                    String   @map("usuario_id")
+  usuario                      Usuario  @relation(fields: [usuarioId], references: [id])
+  sincronizado                 Boolean  @default(true)
+  createdAt                    DateTime @default(now()) @map("created_at")
+  updatedAt                    DateTime @updatedAt @map("updated_at")
+
+  @@map("fri_produccion")
+}
+
+// 2. FRI INVENTARIOS (MENSUAL)
+model FRIInventarios {
+  id                        String   @id @default(uuid())
+  fechaCorteInformacion     DateTime @map("fecha_corte_informacion")
+  mineral                   String
+  tituloMinero              String   @map("titulo_minero")
+  unidadMedidaInventarios   String?  @map("unidad_medida_inventarios")
+  inventarioInicialAcopio   Decimal? @map("inventario_inicial_acopio") @db.Decimal(15,4)
+  inventarioFinalAcopio     Decimal? @map("inventario_final_acopio") @db.Decimal(15,4)
+  ingresoAcopio             Decimal? @map("ingreso_acopio") @db.Decimal(15,4)
+  salidaAcopio              Decimal? @map("salida_acopio") @db.Decimal(15,4)
+  
+  usuarioId                 String   @map("usuario_id")
+  usuario                   Usuario  @relation(fields: [usuarioId], references: [id])
+  sincronizado              Boolean  @default(true)
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+
+  @@map("fri_inventarios")
+}
+
+// 3. FRI PARADAS DE PRODUCCIÓN (MENSUAL)
+model FRIParadasProduccion {
+  id                        String   @id @default(uuid())
+  tituloMinero              String   @map("titulo_minero")
+  mineral                   String
+  fechaInicioEvento         DateTime @map("fecha_inicio_evento")
+  fechaFinEvento            DateTime @map("fecha_fin_evento")
+  tipoParada                String?  @map("tipo_parada")
+  causaParada               String?  @map("causa_parada")
+  duracionEventoHoras       Decimal? @map("duracion_evento_horas") @db.Decimal(8,2)
+  duracionRetomaOperacion   Decimal? @map("duracion_retoma_operacion") @db.Decimal(8,2)
+  impactoProduccion         Decimal? @map("impacto_produccion") @db.Decimal(15,4)
+  unidadMedidaImpacto       String?  @map("unidad_medida_impacto")
+  
+  usuarioId                 String   @map("usuario_id")
+  usuario                   Usuario  @relation(fields: [usuarioId], references: [id])
+  sincronizado              Boolean  @default(true)
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+
+  @@map("fri_paradas_produccion")
+}
+
+// 4. FRI EJECUCIÓN (MENSUAL)
+model FRIEjecucion {
+  id                          String   @id @default(uuid())
+  fechaCorteInformacion       DateTime @map("fecha_corte_informacion")
+  tituloMinero                String   @map("titulo_minero")
+  mineral                     String
+  denominacionFrente          String?  @map("denominacion_frente")
+  coordenadaLatitud           Decimal? @map("coordenada_latitud") @db.Decimal(10,8)
+  coordenadaLongitud          Decimal? @map("coordenada_longitud") @db.Decimal(11,8)
+  metodoExplotacion           String?  @map("metodo_explotacion")
+  avanceYacimientoEjecutado   Decimal? @map("avance_yacimiento_ejecutado") @db.Decimal(15,4)
+  unidadMedidaAvance          String?  @map("unidad_medida_avance")
+  volumenEjecutado            Decimal? @map("volumen_ejecutado") @db.Decimal(15,4)
+  unidadMedidaVolumen         String?  @map("unidad_medida_volumen")
+  densidadMantoEjecutado      Decimal? @map("densidad_manto_ejecutado") @db.Decimal(10,4)
+  unidadMedidaDensidad        String?  @map("unidad_medida_densidad")
+  frentesEjecutado            Int?     @map("frentes_ejecutado")
+  avanceTopografia            Decimal? @map("avance_topografia") @db.Decimal(15,4)
+  
+  usuarioId                   String   @map("usuario_id")
+  usuario                     Usuario  @relation(fields: [usuarioId], references: [id])
+  sincronizado                Boolean  @default(true)
+  createdAt                   DateTime @default(now()) @map("created_at")
+  updatedAt                   DateTime @updatedAt @map("updated_at")
+
+  @@map("fri_ejecucion")
+}
+
+// 5. FRI MAQUINARIA TRANSPORTE (MENSUAL)
+model FRIMaquinariaTransporte {
+  id                             String   @id @default(uuid())
+  fechaCorteInformacion          DateTime @map("fecha_corte_informacion")
+  tituloMinero                   String   @map("titulo_minero")
+  mineral                        String
+  tipoVehiculo                   String?  @map("tipo_vehiculo")
+  unidadCapacidadVehiculo        String?  @map("unidad_capacidad_vehiculo")
+  capacidadVehiculo              Decimal? @map("capacidad_vehiculo") @db.Decimal(10,4)
+  usoMecanismo                   String?  @map("uso_mecanismo")
+  unidadUsoMecanismo             String?  @map("unidad_uso_mecanismo")
+  densidadMaterialTransportado   Decimal? @map("densidad_material_transportado") @db.Decimal(10,4)
+  
+  usuarioId                      String   @map("usuario_id")
+  usuario                        Usuario  @relation(fields: [usuarioId], references: [id])
+  sincronizado                   Boolean  @default(true)
+  createdAt                      DateTime @default(now()) @map("created_at")
+  updatedAt                      DateTime @updatedAt @map("updated_at")
+
+  @@map("fri_maquinaria_transporte")
+}
+
+// 6. FRI REGALÍAS (TRIMESTRAL)
+model FRIRegalias {
+  id                            String   @id @default(uuid())
+  fechaCorteDeclaracion         DateTime @map("fecha_corte_declaracion")
+  mineral                       String
+  tituloMinero                  String   @map("titulo_minero")
+  municipioExtraccion           String?  @map("municipio_extraccion")
+  codigoMunicipioExtraccion     String?  @map("codigo_municipio_extraccion")
+  cantidadMineralExtraido       Decimal? @map("cantidad_mineral_extraido") @db.Decimal(15,4)
+  unidadMedidaMineral           String?  @map("unidad_medida_mineral")
+  valorDeclaracionRegalias      Decimal? @map("valor_declaracion_regalias") @db.Decimal(18,2)
+  valorOtrasContraprestaciones  Decimal? @map("valor_otras_contraprestaciones") @db.Decimal(18,2)
+  resolucionUpme                String?  @map("resolucion_upme")
+  precioBaseLiquidacion         Decimal? @map("precio_base_liquidacion") @db.Decimal(18,4)
+  porcentajeRegalias            Decimal? @map("porcentaje_regalias") @db.Decimal(5,4)
+  
+  usuarioId                     String   @map("usuario_id")
+  usuario                       Usuario  @relation(fields: [usuarioId], references: [id])
+  sincronizado                  Boolean  @default(true)
+  createdAt                     DateTime @default(now()) @map("created_at")
+  updatedAt                     DateTime @updatedAt @map("updated_at")
+
+  @@map("fri_regalias")
+}
+
+// 7. FRI INVENTARIO MAQUINARIA (ANUAL)
+model FRIInventarioMaquinaria {
+  id                           String   @id @default(uuid())
+  fechaCorteInformacion        DateTime @map("fecha_corte_informacion")
+  tituloMinero                 String   @map("titulo_minero")
+  mineral                      String
+  tipoMaquinaria               String?  @map("tipo_maquinaria")
+  cantidadMaquinaria           Int?     @map("cantidad_maquinaria")
+  unidadCapacidadMaquinaria    String?  @map("unidad_capacidad_maquinaria")
+  capacidadMaquinaria          Decimal? @map("capacidad_maquinaria") @db.Decimal(15,4)
+  unidadRendimientoMaquinaria  String?  @map("unidad_rendimiento_maquinaria")
+  rendimientoMaquinaria        Decimal? @map("rendimiento_maquinaria") @db.Decimal(15,4)
+  
+  usuarioId                    String   @map("usuario_id")
+  usuario                      Usuario  @relation(fields: [usuarioId], references: [id])
+  sincronizado                 Boolean  @default(true)
+  createdAt                    DateTime @default(now()) @map("created_at")
+  updatedAt                    DateTime @updatedAt @map("updated_at")
+
+  @@map("fri_inventario_maquinaria")
+}
+
+// 8. FRI CAPACIDAD TECNOLÓGICA (ANUAL)
+model FRICapacidadTecnologica {
+  id                         String   @id @default(uuid())
+  fechaCorteInformacion      DateTime @map("fecha_corte_informacion")
+  tituloMinero               String   @map("titulo_minero")
+  mineral                    String
+  ubicacionPuntoControl      String?  @map("ubicacion_punto_control")
+  formaControl               String?  @map("forma_control")
+  tipoControl                String?  @map("tipo_control")
+  materialMedido             String?  @map("material_medido")
+  variableMedida             String?  @map("variable_medida")
+  unidadMedicionPuntoControl String?  @map("unidad_medicion_punto_control")
+  tecnologiaMedicion         String?  @map("tecnologia_medicion")
+  tipoSoftwareControl        String?  @map("tipo_software_control")
+  almacenamientoDatos        String?  @map("almacenamiento_datos")
+  
+  usuarioId                  String   @map("usuario_id")
+  usuario                    Usuario  @relation(fields: [usuarioId], references: [id])
+  sincronizado               Boolean  @default(true)
+  createdAt                  DateTime @default(now()) @map("created_at")
+  updatedAt                  DateTime @updatedAt @map("updated_at")
+
+  @@map("fri_capacidad_tecnologica")
+}
+
+// 9. FRI PROYECCIONES (ANUAL)
+model FRIProyecciones {
+  id                              String   @id @default(uuid())
+  fechaCorteInformacion           DateTime @map("fecha_corte_informacion")
+  tituloMinero                    String   @map("titulo_minero")
+  metodoExplotacion               String?  @map("metodo_explotacion")
+  mineral                         String
+  capacidadInstaladaExtraccion    Decimal? @map("capacidad_instalada_extraccion") @db.Decimal(15,4)
+  capacidadInstaladaTransporte    Decimal? @map("capacidad_instalada_transporte") @db.Decimal(15,4)
+  capacidadInstaladaBeneficio     Decimal? @map("capacidad_instalada_beneficio") @db.Decimal(15,4)
+  proyeccionTopografia            Decimal? @map("proyeccion_topografia") @db.Decimal(15,4)
+  densidadMantoProyectado         Decimal? @map("densidad_manto_proyectado") @db.Decimal(10,4)
+  cantidadProyectadoProduccion    Decimal? @map("cantidad_proyectado_produccion") @db.Decimal(15,4)
+  unidadMedidaCantidad            String?  @map("unidad_medida_cantidad")
+  
+  usuarioId                       String   @map("usuario_id")
+  usuario                         Usuario  @relation(fields: [usuarioId], references: [id])
+  sincronizado                    Boolean  @default(true)
+  createdAt                       DateTime @default(now()) @map("created_at")
+  updatedAt                       DateTime @updatedAt @map("updated_at")
+
+  @@map("fri_proyecciones")
+}
+
+// TABLA DE AUDITORÍA
+model AuditoriaFRI {
+  id            String   @id @default(uuid())
+  tabla         String   // Nombre de la tabla afectada
+  registroId    String   @map("registro_id") // ID del registro modificado
+  operacion     String   // 'CREATE', 'UPDATE', 'DELETE'
+  datosAnteriores Json?  @map("datos_anteriores") // Datos antes del cambio
+  datosNuevos   Json?    @map("datos_nuevos") // Datos después del cambio
+  usuarioId     String   @map("usuario_id") // Quién hizo el cambio
+  ipAddress     String?  @map("ip_address") // Desde dónde
+  userAgent     String?  @map("user_agent") // Con qué navegador/app
+  timestamp     DateTime @default(now())
+
+  @@map("auditoria_fri")
+}
