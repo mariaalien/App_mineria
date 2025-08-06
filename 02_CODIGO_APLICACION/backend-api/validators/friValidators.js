@@ -1,503 +1,437 @@
-const { body, param, query, validationResult } = require('express-validator');
+// ================================
+// 📁 validators/friValidators.js - VALIDADORES COMPLETOS PARA LOS 9 FRI
+// ================================
+const Joi = require('joi');
 
-// Middleware para manejar errores de validación
-const handleValidationErrors = (req, res, next) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({
-            success: false,
-            message: 'Error de validación',
-            errors: errors.array()
-        });
-    }
-    next();
+// =============================================================================
+// ESQUEMAS BASE REUTILIZABLES
+// =============================================================================
+
+const baseUsuarioSchema = {
+  usuarioId: Joi.string().uuid().required().messages({
+    'string.guid': 'ID de usuario debe ser un UUID válido',
+    'any.required': 'Usuario es requerido'
+  })
 };
 
-// Validadores para crear solicitud FRI
-const validateCreateFRI = [
-    body('nit')
-        .notEmpty()
-        .withMessage('El NIT es requerido')
-        .isLength({ min: 8, max: 12 })
-        .withMessage('El NIT debe tener entre 8 y 12 caracteres')
-        .matches(/^[0-9]+$/)
-        .withMessage('El NIT solo debe contener números'),
-    
-    body('razonSocial')
-        .notEmpty()
-        .withMessage('La razón social es requerida')
-        .isLength({ min: 3, max: 200 })
-        .withMessage('La razón social debe tener entre 3 y 200 caracteres'),
-    
-    body('representanteLegal')
-        .notEmpty()
-        .withMessage('El representante legal es requerido')
-        .isLength({ min: 3, max: 100 })
-        .withMessage('El representante legal debe tener entre 3 y 100 caracteres'),
-    
-    body('telefono')
-        .notEmpty()
-        .withMessage('El teléfono es requerido')
-        .matches(/^[0-9+\-\s()]+$/)
-        .withMessage('El teléfono solo debe contener números, espacios, +, -, ()'),
-    
-    body('email')
-        .notEmpty()
-        .withMessage('El email es requerido')
-        .isEmail()
-        .withMessage('Debe ser un email válido'),
-    
-    body('direccion')
-        .notEmpty()
-        .withMessage('La dirección es requerida')
-        .isLength({ min: 10, max: 200 })
-        .withMessage('La dirección debe tener entre 10 y 200 caracteres'),
-    
-    body('municipio')
-        .notEmpty()
-        .withMessage('El municipio es requerido')
-        .isLength({ min: 3, max: 100 })
-        .withMessage('El municipio debe tener entre 3 y 100 caracteres'),
-    
-    body('departamento')
-        .notEmpty()
-        .withMessage('El departamento es requerido')
-        .isLength({ min: 3, max: 100 })
-        .withMessage('El departamento debe tener entre 3 y 100 caracteres'),
-    
-    body('tipoSolicitud')
-        .notEmpty()
-        .withMessage('El tipo de solicitud es requerido')
-        .isIn(['EXPLORACION', 'EXPLOTACION', 'BENEFICIO', 'TRANSFORMACION'])
-        .withMessage('Tipo de solicitud inválido'),
-    
-    body('coordenadas')
-        .optional()
-        .isArray()
-        .withMessage('Las coordenadas deben ser un array'),
-    
-    body('coordenadas.*.latitud')
-        .optional()
-        .isFloat({ min: -90, max: 90 })
-        .withMessage('La latitud debe estar entre -90 y 90'),
-    
-    body('coordenadas.*.longitud')
-        .optional()
-        .isFloat({ min: -180, max: 180 })
-        .withMessage('La longitud debe estar entre -180 y 180'),
-    
-    handleValidationErrors
-];
+const baseFechaSchema = {
+  fechaCorteInformacion: Joi.date().iso().max('now').required().messages({
+    'date.base': 'Fecha debe ser válida',
+    'date.max': 'Fecha no puede ser futura',
+    'any.required': 'Fecha de corte es requerida'
+  })
+};
 
-// Validadores para actualizar solicitud FRI
-const validateUpdateFRI = [
-    param('id')
-        .isInt({ min: 1 })
-        .withMessage('El ID debe ser un número entero positivo'),
-    
-    body('nit')
-        .optional()
-        .isLength({ min: 8, max: 12 })
-        .withMessage('El NIT debe tener entre 8 y 12 caracteres')
-        .matches(/^[0-9]+$/)
-        .withMessage('El NIT solo debe contener números'),
-    
-    body('razonSocial')
-        .optional()
-        .isLength({ min: 3, max: 200 })
-        .withMessage('La razón social debe tener entre 3 y 200 caracteres'),
-    
-    body('representanteLegal')
-        .optional()
-        .isLength({ min: 3, max: 100 })
-        .withMessage('El representante legal debe tener entre 3 y 100 caracteres'),
-    
-    body('telefono')
-        .optional()
-        .matches(/^[0-9+\-\s()]+$/)
-        .withMessage('El teléfono solo debe contener números, espacios, +, -, ()'),
-    
-    body('email')
-        .optional()
-        .isEmail()
-        .withMessage('Debe ser un email válido'),
-    
-    body('direccion')
-        .optional()
-        .isLength({ min: 10, max: 200 })
-        .withMessage('La dirección debe tener entre 10 y 200 caracteres'),
-    
-    body('municipio')
-        .optional()
-        .isLength({ min: 3, max: 100 })
-        .withMessage('El municipio debe tener entre 3 y 100 caracteres'),
-    
-    body('departamento')
-        .optional()
-        .isLength({ min: 3, max: 100 })
-        .withMessage('El departamento debe tener entre 3 y 100 caracteres'),
-    
-    body('tipoSolicitud')
-        .optional()
-        .isIn(['EXPLORACION', 'EXPLOTACION', 'BENEFICIO', 'TRANSFORMACION'])
-        .withMessage('Tipo de solicitud inválido'),
-    
-    body('estado')
-        .optional()
-        .isIn(['PENDIENTE', 'REVISION', 'APROBADO', 'RECHAZADO'])
-        .withMessage('Estado inválido'),
-    
-    handleValidationErrors
-];
+const baseMineralSchema = {
+  mineral: Joi.string().min(2).max(100).uppercase().required().messages({
+    'string.min': 'Mineral debe tener al menos 2 caracteres',
+    'string.max': 'Mineral no puede exceder 100 caracteres',
+    'any.required': 'Mineral es requerido'
+  }),
+  tituloMinero: Joi.string().min(3).max(50).required().messages({
+    'string.min': 'Título minero debe tener al menos 3 caracteres',
+    'string.max': 'Título minero no puede exceder 50 caracteres',
+    'any.required': 'Título minero es requerido'
+  })
+};
 
-// Validadores para obtener solicitud por ID
-const validateGetFRIById = [
-    param('id')
-        .isInt({ min: 1 })
-        .withMessage('El ID debe ser un número entero positivo'),
-    
-    handleValidationErrors
-];
+const coordenadaSchema = {
+  coordenadaLatitud: Joi.number().min(-90).max(90).precision(8).optional().messages({
+    'number.min': 'Latitud debe estar entre -90 y 90',
+    'number.max': 'Latitud debe estar entre -90 y 90'
+  }),
+  coordenadaLongitud: Joi.number().min(-180).max(180).precision(8).optional().messages({
+    'number.min': 'Longitud debe estar entre -180 y 180',
+    'number.max': 'Longitud debe estar entre -180 y 180'
+  })
+};
 
-// Validadores para eliminar solicitud
-const validateDeleteFRI = [
-    param('id')
-        .isInt({ min: 1 })
-        .withMessage('El ID debe ser un número entero positivo'),
-    
-    handleValidationErrors
-];
+// =============================================================================
+// 1. FRI PRODUCCIÓN (MENSUAL) - VALIDADOR
+// =============================================================================
 
-// Validadores para búsqueda y filtros
-const validateSearchFRI = [
-    query('page')
-        .optional()
-        .isInt({ min: 1 })
-        .withMessage('La página debe ser un número entero positivo'),
-    
-    query('limit')
-        .optional()
-        .isInt({ min: 1, max: 100 })
-        .withMessage('El límite debe ser un número entre 1 y 100'),
-    
-    query('estado')
-        .optional()
-        .isIn(['PENDIENTE', 'REVISION', 'APROBADO', 'RECHAZADO'])
-        .withMessage('Estado inválido'),
-    
-    query('tipoSolicitud')
-        .optional()
-        .isIn(['EXPLORACION', 'EXPLOTACION', 'BENEFICIO', 'TRANSFORMACION'])
-        .withMessage('Tipo de solicitud inválido'),
-    
-    query('nit')
-        .optional()
-        .matches(/^[0-9]+$/)
-        .withMessage('El NIT solo debe contener números'),
-    
-    query('startDate')
-        .optional()
-        .isISO8601()
-        .withMessage('La fecha de inicio debe ser una fecha válida (ISO 8601)'),
-    
-    query('endDate')
-        .optional()
-        .isISO8601()
-        .withMessage('La fecha de fin debe ser una fecha válida (ISO 8601)'),
-    
-    handleValidationErrors
-];
+const friProduccionSchema = Joi.object({
+  ...baseFechaSchema,
+  ...baseMineralSchema,
+  municipioExtraccion: Joi.string().min(2).max(100).optional().messages({
+    'string.min': 'Municipio debe tener al menos 2 caracteres',
+    'string.max': 'Municipio no puede exceder 100 caracteres'
+  }),
+  codigoMunicipioExtraccion: Joi.string().pattern(/^\d{5}$/).optional().messages({
+    'string.pattern.base': 'Código de municipio debe tener 5 dígitos'
+  }),
+  horasOperativas: Joi.number().min(0).max(744).precision(2).optional().messages({
+    'number.min': 'Horas operativas no pueden ser negativas',
+    'number.max': 'Horas operativas no pueden exceder 744 (mes completo)'
+  }),
+  cantidadProduccion: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Cantidad de producción debe ser positiva'
+  }),
+  unidadMedidaProduccion: Joi.string().valid('TONELADAS', 'M3', 'KG', 'GRAMOS', 'ONZAS').optional(),
+  cantidadMaterialEntraPlanta: Joi.number().min(0).precision(4).optional(),
+  cantidadMaterialSalePlanta: Joi.number().min(0).precision(4).optional(),
+  masaUnitaria: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Masa unitaria debe ser positiva'
+  }),
+  ...baseUsuarioSchema
+});
 
-// Validadores para comentarios
-const validateComment = [
-    param('friId')
-        .isInt({ min: 1 })
-        .withMessage('El ID de la solicitud FRI debe ser un número entero positivo'),
-    
-    body('comentario')
-        .notEmpty()
-        .withMessage('El comentario es requerido')
-        .isLength({ min: 10, max: 1000 })
-        .withMessage('El comentario debe tener entre 10 y 1000 caracteres'),
-    
-    body('esPublico')
-        .optional()
-        .isBoolean()
-        .withMessage('esPublico debe ser un valor booleano'),
-    
-    handleValidationErrors
-];
+// =============================================================================
+// 2. FRI INVENTARIOS (MENSUAL) - VALIDADOR
+// =============================================================================
 
-// Alias para compatibilidad con routes/fri.js
-const validateFRI = validateCreateFRI;
+const friInventariosSchema = Joi.object({
+  ...baseFechaSchema,
+  ...baseMineralSchema,
+  unidadMedidaInventarios: Joi.string().valid('TONELADAS', 'M3', 'KG', 'GRAMOS').optional(),
+  inventarioInicialAcopio: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Inventario inicial debe ser positivo'
+  }),
+  inventarioFinalAcopio: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Inventario final debe ser positivo'
+  }),
+  ingresoAcopio: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Ingreso de acopio debe ser positivo'
+  }),
+  salidaAcopio: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Salida de acopio debe ser positiva'
+  }),
+  ...baseUsuarioSchema
+});
 
-// Esquemas de validación específicos para diferentes módulos FRI
-const produccionSchema = [
-    body('produccion.*.mes')
-        .notEmpty()
-        .withMessage('El mes es requerido')
-        .isInt({ min: 1, max: 12 })
-        .withMessage('El mes debe estar entre 1 y 12'),
-    
-    body('produccion.*.cantidad')
-        .notEmpty()
-        .withMessage('La cantidad es requerida')
-        .isFloat({ min: 0 })
-        .withMessage('La cantidad debe ser un número positivo'),
-    
-    body('produccion.*.unidad')
-        .notEmpty()
-        .withMessage('La unidad es requerida')
-        .isIn(['TONELADAS', 'METROS_CUBICOS', 'KILOGRAMOS', 'GRAMOS'])
-        .withMessage('Unidad inválida'),
-    
-    handleValidationErrors
-];
+// =============================================================================
+// 3. FRI PARADAS DE PRODUCCIÓN (MENSUAL) - VALIDADOR
+// =============================================================================
 
-const inventariosSchema = [
-    body('inventarios.*.mineral')
-        .notEmpty()
-        .withMessage('El mineral es requerido')
-        .isLength({ min: 2, max: 100 })
-        .withMessage('El mineral debe tener entre 2 y 100 caracteres'),
-    
-    body('inventarios.*.cantidad')
-        .notEmpty()
-        .withMessage('La cantidad es requerida')
-        .isFloat({ min: 0 })
-        .withMessage('La cantidad debe ser un número positivo'),
-    
-    body('inventarios.*.ubicacion')
-        .notEmpty()
-        .withMessage('La ubicación es requerida')
-        .isLength({ min: 5, max: 200 })
-        .withMessage('La ubicación debe tener entre 5 y 200 caracteres'),
-    
-    handleValidationErrors
-];
+const friParadasSchema = Joi.object({
+  ...baseMineralSchema,
+  fechaInicioEvento: Joi.date().iso().required().messages({
+    'date.base': 'Fecha de inicio debe ser válida',
+    'any.required': 'Fecha de inicio es requerida'
+  }),
+  fechaFinEvento: Joi.date().iso().min(Joi.ref('fechaInicioEvento')).required().messages({
+    'date.base': 'Fecha de fin debe ser válida',
+    'date.min': 'Fecha de fin debe ser posterior a fecha de inicio',
+    'any.required': 'Fecha de fin es requerida'
+  }),
+  tipoParada: Joi.string().valid(
+    'MANTENIMIENTO_PROGRAMADO',
+    'MANTENIMIENTO_CORRECTIVO', 
+    'CLIMATICAS',
+    'TECNICAS',
+    'ADMINISTRATIVAS',
+    'SEGURIDAD',
+    'AMBIENTAL',
+    'OTRAS'
+  ).optional(),
+  causaParada: Joi.string().min(10).max(500).optional().messages({
+    'string.min': 'Causa de parada debe tener al menos 10 caracteres',
+    'string.max': 'Causa de parada no puede exceder 500 caracteres'
+  }),
+  duracionEventoHoras: Joi.number().min(0).max(8760).precision(2).optional().messages({
+    'number.min': 'Duración debe ser positiva',
+    'number.max': 'Duración no puede exceder un año (8760 horas)'
+  }),
+  duracionRetomaOperacion: Joi.number().min(0).precision(2).optional().messages({
+    'number.min': 'Duración de retoma debe ser positiva'
+  }),
+  impactoProduccion: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Impacto en producción debe ser positivo'
+  }),
+  unidadMedidaImpacto: Joi.string().valid('TONELADAS', 'M3', 'KG', 'GRAMOS', 'HORAS').optional(),
+  ...baseUsuarioSchema
+});
 
-const paradasSchema = [
-    body('paradas.*.fechaInicio')
-        .notEmpty()
-        .withMessage('La fecha de inicio es requerida')
-        .isISO8601()
-        .withMessage('La fecha de inicio debe ser válida'),
-    
-    body('paradas.*.fechaFin')
-        .optional()
-        .isISO8601()
-        .withMessage('La fecha de fin debe ser válida'),
-    
-    body('paradas.*.motivo')
-        .notEmpty()
-        .withMessage('El motivo es requerido')
-        .isLength({ min: 10, max: 500 })
-        .withMessage('El motivo debe tener entre 10 y 500 caracteres'),
-    
-    body('paradas.*.tipo')
-        .notEmpty()
-        .withMessage('El tipo de parada es requerido')
-        .isIn(['MANTENIMIENTO', 'CLIMATICAS', 'TECNICAS', 'ADMINISTRATIVAS', 'OTRAS'])
-        .withMessage('Tipo de parada inválido'),
-    
-    handleValidationErrors
-];
+// =============================================================================
+// 4. FRI EJECUCIÓN (MENSUAL) - VALIDADOR
+// =============================================================================
 
-const ejecucionSchema = [
-    body('ejecucion.presupuestoTotal')
-        .notEmpty()
-        .withMessage('El presupuesto total es requerido')
-        .isFloat({ min: 0 })
-        .withMessage('El presupuesto debe ser un número positivo'),
-    
-    body('ejecucion.presupuestoEjecutado')
-        .notEmpty()
-        .withMessage('El presupuesto ejecutado es requerido')
-        .isFloat({ min: 0 })
-        .withMessage('El presupuesto ejecutado debe ser un número positivo'),
-    
-    body('ejecucion.porcentajeEjecucion')
-        .optional()
-        .isFloat({ min: 0, max: 100 })
-        .withMessage('El porcentaje debe estar entre 0 y 100'),
-    
-    body('ejecucion.actividades.*.descripcion')
-        .notEmpty()
-        .withMessage('La descripción de la actividad es requerida'),
-    
-    body('ejecucion.actividades.*.costo')
-        .isFloat({ min: 0 })
-        .withMessage('El costo debe ser un número positivo'),
-    
-    handleValidationErrors
-];
+const friEjecucionSchema = Joi.object({
+  ...baseFechaSchema,
+  ...baseMineralSchema,
+  denominacionFrente: Joi.string().min(2).max(100).optional().messages({
+    'string.min': 'Denominación de frente debe tener al menos 2 caracteres',
+    'string.max': 'Denominación de frente no puede exceder 100 caracteres'
+  }),
+  ...coordenadaSchema,
+  metodoExplotacion: Joi.string().valid(
+    'CIELO_ABIERTO',
+    'SUBTERRANEO',
+    'ALUVIAL',
+    'DRAGADO',
+    'CANTERAS',
+    'OTROS'
+  ).optional(),
+  avanceYacimientoEjecutado: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Avance ejecutado debe ser positivo'
+  }),
+  unidadMedidaAvance: Joi.string().valid('METROS', 'HECTAREAS', 'M2', 'M3').optional(),
+  volumenEjecutado: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Volumen ejecutado debe ser positivo'
+  }),
+  unidadMedidaVolumen: Joi.string().valid('M3', 'M2', 'METROS').optional(),
+  densidadMantoEjecutado: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Densidad del manto debe ser positiva'
+  }),
+  unidadMedidaDensidad: Joi.string().valid('TON_M3', 'KG_M3', 'G_CM3').optional(),
+  frentesEjecutado: Joi.number().integer().min(0).optional().messages({
+    'number.integer': 'Frentes ejecutados debe ser un número entero',
+    'number.min': 'Frentes ejecutados debe ser positivo'
+  }),
+  avanceTopografia: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Avance topográfico debe ser positivo'
+  }),
+  ...baseUsuarioSchema
+});
 
-const maquinariaTransporteSchema = [
-    body('maquinaria.*.tipo')
-        .notEmpty()
-        .withMessage('El tipo de maquinaria es requerido')
-        .isIn(['EXCAVADORA', 'VOLQUETA', 'BULLDOZER', 'PERFORADORA', 'CARGADOR', 'GRUA', 'OTRO'])
-        .withMessage('Tipo de maquinaria inválido'),
-    
-    body('maquinaria.*.marca')
-        .notEmpty()
-        .withMessage('La marca es requerida')
-        .isLength({ min: 2, max: 50 })
-        .withMessage('La marca debe tener entre 2 y 50 caracteres'),
-    
-    body('maquinaria.*.modelo')
-        .notEmpty()
-        .withMessage('El modelo es requerido')
-        .isLength({ min: 2, max: 50 })
-        .withMessage('El modelo debe tener entre 2 y 50 caracteres'),
-    
-    body('maquinaria.*.placa')
-        .optional()
-        .matches(/^[A-Z0-9\-]+$/)
-        .withMessage('La placa debe contener solo letras mayúsculas, números y guiones'),
-    
-    body('maquinaria.*.estado')
-        .notEmpty()
-        .withMessage('El estado es requerido')
-        .isIn(['OPERATIVO', 'MANTENIMIENTO', 'FUERA_SERVICIO'])
-        .withMessage('Estado inválido'),
-    
-    handleValidationErrors
-];
+// =============================================================================
+// 5. FRI MAQUINARIA TRANSPORTE (MENSUAL) - VALIDADOR
+// =============================================================================
 
-const regaliasSchema = [
-    body('regalias.mes')
-        .notEmpty()
-        .withMessage('El mes es requerido')
-        .isInt({ min: 1, max: 12 })
-        .withMessage('El mes debe estar entre 1 y 12'),
-    
-    body('regalias.año')
-        .notEmpty()
-        .withMessage('El año es requerido')
-        .isInt({ min: 2000, max: 2100 })
-        .withMessage('El año debe estar entre 2000 y 2100'),
-    
-    body('regalias.valorProduccion')
-        .notEmpty()
-        .withMessage('El valor de producción es requerido')
-        .isFloat({ min: 0 })
-        .withMessage('El valor de producción debe ser positivo'),
-    
-    body('regalias.porcentajeRegalias')
-        .notEmpty()
-        .withMessage('El porcentaje de regalías es requerido')
-        .isFloat({ min: 0, max: 100 })
-        .withMessage('El porcentaje debe estar entre 0 y 100'),
-    
-    body('regalias.valorRegalias')
-        .notEmpty()
-        .withMessage('El valor de regalías es requerido')
-        .isFloat({ min: 0 })
-        .withMessage('El valor de regalías debe ser positivo'),
-    
-    handleValidationErrors
-];
+const friMaquinariaTransporteSchema = Joi.object({
+  ...baseFechaSchema,
+  ...baseMineralSchema,
+  tipoVehiculo: Joi.string().valid(
+    'VOLQUETA',
+    'TRACTOMULA',
+    'CAMION',
+    'MOTO',
+    'BARCAZA',
+    'FERROCARRIL',
+    'BANDA_TRANSPORTADORA',
+    'OTROS'
+  ).optional(),
+  unidadCapacidadVehiculo: Joi.string().valid('TONELADAS', 'M3', 'KG').optional(),
+  capacidadVehiculo: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Capacidad del vehículo debe ser positiva'
+  }),
+  usoMecanismo: Joi.string().min(5).max(200).optional().messages({
+    'string.min': 'Descripción de uso debe tener al menos 5 caracteres',
+    'string.max': 'Descripción de uso no puede exceder 200 caracteres'
+  }),
+  unidadUsoMecanismo: Joi.string().valid('HORAS', 'VIAJES', 'KM', 'DÍAS').optional(),
+  densidadMaterialTransportado: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Densidad del material debe ser positiva'
+  }),
+  ...baseUsuarioSchema
+});
 
-const inventarioMaquinariaSchema = [
-    body('inventarioMaquinaria.*.codigo')
-        .notEmpty()
-        .withMessage('El código es requerido')
-        .isLength({ min: 3, max: 20 })
-        .withMessage('El código debe tener entre 3 y 20 caracteres'),
-    
-    body('inventarioMaquinaria.*.descripcion')
-        .notEmpty()
-        .withMessage('La descripción es requerida')
-        .isLength({ min: 10, max: 200 })
-        .withMessage('La descripción debe tener entre 10 y 200 caracteres'),
-    
-    body('inventarioMaquinaria.*.valorComercial')
-        .notEmpty()
-        .withMessage('El valor comercial es requerido')
-        .isFloat({ min: 0 })
-        .withMessage('El valor comercial debe ser positivo'),
-    
-    body('inventarioMaquinaria.*.fechaAdquisicion')
-        .optional()
-        .isISO8601()
-        .withMessage('La fecha de adquisición debe ser válida'),
-    
-    handleValidationErrors
-];
+// =============================================================================
+// 6. FRI REGALÍAS (TRIMESTRAL) - VALIDADOR
+// =============================================================================
 
-const capacidadTecnologicaSchema = [
-    body('capacidadTecnologica.tecnologias.*.nombre')
-        .notEmpty()
-        .withMessage('El nombre de la tecnología es requerido')
-        .isLength({ min: 3, max: 100 })
-        .withMessage('El nombre debe tener entre 3 y 100 caracteres'),
-    
-    body('capacidadTecnologica.tecnologias.*.tipo')
-        .notEmpty()
-        .withMessage('El tipo de tecnología es requerido')
-        .isIn(['EXTRACCION', 'PROCESAMIENTO', 'TRANSPORTE', 'SEGURIDAD', 'AMBIENTAL'])
-        .withMessage('Tipo de tecnología inválido'),
-    
-    body('capacidadTecnologica.personal.*.cargo')
-        .notEmpty()
-        .withMessage('El cargo es requerido')
-        .isLength({ min: 3, max: 100 })
-        .withMessage('El cargo debe tener entre 3 y 100 caracteres'),
-    
-    body('capacidadTecnologica.personal.*.cantidad')
-        .notEmpty()
-        .withMessage('La cantidad de personal es requerida')
-        .isInt({ min: 1 })
-        .withMessage('La cantidad debe ser un número entero positivo'),
-    
-    handleValidationErrors
-];
+const friRegaliasSchema = Joi.object({
+  fechaCorteDeclaracion: Joi.date().iso().max('now').required().messages({
+    'date.base': 'Fecha de corte debe ser válida',
+    'date.max': 'Fecha no puede ser futura',
+    'any.required': 'Fecha de corte de declaración es requerida'
+  }),
+  ...baseMineralSchema,
+  municipioExtraccion: Joi.string().min(2).max(100).optional(),
+  codigoMunicipioExtraccion: Joi.string().pattern(/^\d{5}$/).optional(),
+  cantidadMineralExtraido: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Cantidad extraída debe ser positiva'
+  }),
+  unidadMedidaMineral: Joi.string().valid('TONELADAS', 'M3', 'KG', 'GRAMOS', 'ONZAS').optional(),
+  valorDeclaracionRegalias: Joi.number().min(0).precision(2).optional().messages({
+    'number.min': 'Valor de declaración debe ser positivo'
+  }),
+  valorOtrasContraprestaciones: Joi.number().min(0).precision(2).optional().messages({
+    'number.min': 'Valor de contraprestaciones debe ser positivo'
+  }),
+  resolucionUpme: Joi.string().pattern(/^\d{4}-\d{2}-\d{3}$/).optional().messages({
+    'string.pattern.base': 'Resolución UPME debe tener formato YYYY-MM-NNN'
+  }),
+  precioBaseLiquidacion: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Precio base debe ser positivo'
+  }),
+  porcentajeRegalias: Joi.number().min(0).max(100).precision(4).optional().messages({
+    'number.min': 'Porcentaje de regalías debe ser positivo',
+    'number.max': 'Porcentaje de regalías no puede exceder 100%'
+  }),
+  ...baseUsuarioSchema
+});
 
-const proyeccionesSchema = [
-    body('proyecciones.año')
-        .notEmpty()
-        .withMessage('El año es requerido')
-        .isInt({ min: 2024, max: 2050 })
-        .withMessage('El año debe estar entre 2024 y 2050'),
-    
-    body('proyecciones.produccionEstimada')
-        .notEmpty()
-        .withMessage('La producción estimada es requerida')
-        .isFloat({ min: 0 })
-        .withMessage('La producción estimada debe ser positiva'),
-    
-    body('proyecciones.inversionEstimada')
-        .notEmpty()
-        .withMessage('La inversión estimada es requerida')
-        .isFloat({ min: 0 })
-        .withMessage('La inversión estimada debe ser positiva'),
-    
-    body('proyecciones.empleosGenerados')
-        .optional()
-        .isInt({ min: 0 })
-        .withMessage('Los empleos generados deben ser un número entero positivo'),
-    
-    handleValidationErrors
-];
+// =============================================================================
+// 7. FRI INVENTARIO MAQUINARIA (ANUAL) - VALIDADOR
+// =============================================================================
+
+const friInventarioMaquinariaSchema = Joi.object({
+  ...baseFechaSchema,
+  ...baseMineralSchema,
+  tipoMaquinaria: Joi.string().valid(
+    'EXCAVADORA',
+    'BULLDOZER',
+    'CARGADOR_FRONTAL',
+    'RETROEXCAVADORA',
+    'PERFORADORA',
+    'VOLQUETA',
+    'GRUA',
+    'COMPRESORES',
+    'BOMBAS',
+    'PLANTAS_ELECTRICAS',
+    'OTROS'
+  ).optional(),
+  cantidadMaquinaria: Joi.number().integer().min(0).optional().messages({
+    'number.integer': 'Cantidad debe ser un número entero',
+    'number.min': 'Cantidad debe ser positiva'
+  }),
+  unidadCapacidadMaquinaria: Joi.string().valid('TONELADAS', 'M3', 'HP', 'KW', 'GALONES').optional(),
+  capacidadMaquinaria: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Capacidad debe ser positiva'
+  }),
+  unidadRendimientoMaquinaria: Joi.string().valid('TON_HORA', 'M3_HORA', 'KG_HORA').optional(),
+  rendimientoMaquinaria: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Rendimiento debe ser positivo'
+  }),
+  ...baseUsuarioSchema
+});
+
+// =============================================================================
+// 8. FRI CAPACIDAD TECNOLÓGICA (ANUAL) - VALIDADOR
+// =============================================================================
+
+const friCapacidadTecnologicaSchema = Joi.object({
+  ...baseFechaSchema,
+  ...baseMineralSchema,
+  ubicacionPuntoControl: Joi.string().min(5).max(200).optional().messages({
+    'string.min': 'Ubicación debe tener al menos 5 caracteres',
+    'string.max': 'Ubicación no puede exceder 200 caracteres'
+  }),
+  formaControl: Joi.string().valid(
+    'MANUAL',
+    'AUTOMATICO',
+    'SEMIAUTOMATICO',
+    'DIGITAL',
+    'ANALOGICO'
+  ).optional(),
+  tipoControl: Joi.string().valid(
+    'PESAJE',
+    'VOLUMETRICO',
+    'CALIDAD',
+    'AMBIENTAL',
+    'SEGURIDAD',
+    'OPERACIONAL'
+  ).optional(),
+  materialMedido: Joi.string().min(2).max(100).optional(),
+  variableMedida: Joi.string().valid(
+    'PESO',
+    'VOLUMEN',
+    'DENSIDAD',
+    'HUMEDAD',
+    'GRANULOMETRIA',
+    'PUREZA',
+    'OTROS'
+  ).optional(),
+  unidadMedicionPuntoControl: Joi.string().valid('TON', 'KG', 'M3', 'L', '%', 'PPM').optional(),
+  tecnologiaMedicion: Joi.string().min(5).max(200).optional(),
+  tipoSoftwareControl: Joi.string().min(3).max(100).optional(),
+  almacenamientoDatos: Joi.string().valid(
+    'LOCAL',
+    'NUBE',
+    'HIBRIDO',
+    'PAPEL',
+    'DIGITAL'
+  ).optional(),
+  ...baseUsuarioSchema
+});
+
+// =============================================================================
+// 9. FRI PROYECCIONES (ANUAL) - VALIDADOR
+// =============================================================================
+
+const friProyeccionesSchema = Joi.object({
+  ...baseFechaSchema,
+  ...baseMineralSchema,
+  metodoExplotacion: Joi.string().valid(
+    'CIELO_ABIERTO',
+    'SUBTERRANEO',
+    'ALUVIAL',
+    'DRAGADO',
+    'CANTERAS',
+    'OTROS'
+  ).optional(),
+  capacidadInstaladaExtraccion: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Capacidad de extracción debe ser positiva'
+  }),
+  capacidadInstaladaTransporte: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Capacidad de transporte debe ser positiva'
+  }),
+  capacidadInstaladaBeneficio: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Capacidad de beneficio debe ser positiva'
+  }),
+  proyeccionTopografia: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Proyección topográfica debe ser positiva'
+  }),
+  densidadMantoProyectado: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Densidad proyectada debe ser positiva'
+  }),
+  cantidadProyectadoProduccion: Joi.number().min(0).precision(4).optional().messages({
+    'number.min': 'Cantidad proyectada debe ser positiva'
+  }),
+  unidadMedidaCantidad: Joi.string().valid('TONELADAS', 'M3', 'KG', 'GRAMOS').optional(),
+  ...baseUsuarioSchema
+});
+
+// =============================================================================
+// MIDDLEWARE DE VALIDACIÓN UNIVERSAL
+// =============================================================================
+
+const validateFRI = (schema) => {
+  return (req, res, next) => {
+    const { error, value } = schema.validate(req.body, {
+      abortEarly: false,
+      stripUnknown: true,
+      convert: true
+    });
+
+    if (error) {
+      const errors = error.details.map(detail => ({
+        field: detail.path.join('.'),
+        message: detail.message,
+        value: detail.context?.value
+      }));
+
+      return res.status(400).json({
+        success: false,
+        message: 'Errores de validación en los datos enviados',
+        errors,
+        code: 'VALIDATION_ERROR'
+      });
+    }
+
+    req.validatedData = value;
+    next();
+  };
+};
+
+// =============================================================================
+// EXPORTACIONES
+// =============================================================================
 
 module.exports = {
-    validateCreateFRI,
-    validateUpdateFRI,
-    validateGetFRIById,
-    validateDeleteFRI,
-    validateSearchFRI,
-    validateComment,
-    validateFRI,
-    handleValidationErrors,
-    // Esquemas específicos
-    produccionSchema,
-    inventariosSchema,
-    paradasSchema,
-    ejecucionSchema,
-    maquinariaTransporteSchema,
-    regaliasSchema,
-    inventarioMaquinariaSchema,
-    capacidadTecnologicaSchema,
-    proyeccionesSchema
+  // Esquemas individuales
+  friProduccionSchema,
+  friInventariosSchema,
+  friParadasSchema,
+  friEjecucionSchema,
+  friMaquinariaTransporteSchema,
+  friRegaliasSchema,
+  friInventarioMaquinariaSchema,
+  friCapacidadTecnologicaSchema,
+  friProyeccionesSchema,
+  
+  // Middleware de validación
+  validateFRI,
+  
+  // Validadores específicos listos para usar
+  validateFRIProduccion: validateFRI(friProduccionSchema),
+  validateFRIInventarios: validateFRI(friInventariosSchema),
+  validateFRIParadas: validateFRI(friParadasSchema),
+  validateFRIEjecucion: validateFRI(friEjecucionSchema),
+  validateFRIMaquinariaTransporte: validateFRI(friMaquinariaTransporteSchema),
+  validateFRIRegalias: validateFRI(friRegaliasSchema),
+  validateFRIInventarioMaquinaria: validateFRI(friInventarioMaquinariaSchema),
+  validateFRICapacidadTecnologica: validateFRI(friCapacidadTecnologicaSchema),
+  validateFRIProyecciones: validateFRI(friProyeccionesSchema)
 };
