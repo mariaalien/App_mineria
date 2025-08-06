@@ -1,160 +1,221 @@
 // ================================
-// 📁 controllers/authController.js - SIMPLE y FUNCIONAL
+// 📁 middleware/security.js - SIMPLIFICADO SIN WARNINGS
 // ================================
-const bcrypt = require('bcryptjs');
+const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
-const { validationResult } = require('express-validator');
 
 const prisma = new PrismaClient();
 
-class AuthController {
-  // 🔐 LOGIN - Autenticación simple
-  static async login(req, res) {
-    try {
-      // Validar errores de entrada
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Datos de entrada inválidos',
-          errors: errors.array()
-        });
-      }
+// =============================================================================
+// 🔒 MIDDLEWARE DE AUTENTICACIÓN
+// =============================================================================
 
-      const { email, password } = req.body;
-
-      // Buscar usuario
-      const user = await prisma.usuario.findUnique({
-        where: { email: email.toLowerCase() },
-        include: {
-          empresa: true
-        }
-      });
-
-      // Validar usuario
-      if (!user) {
-        return res.status(401).json({
-          success: false,
-          message: 'Credenciales inválidas',
-          code: 'INVALID_CREDENTIALS'
-        });
-      }
-
-      if (!user.isActive) {
-        return res.status(401).json({
-          success: false,
-          message: 'Usuario inactivo',
-          code: 'USER_INACTIVE'
-        });
-      }
-
-      // Verificar contraseña
-      const isValidPassword = await bcrypt.compare(password, user.password);
-      if (!isValidPassword) {
-        return res.status(401).json({
-          success: false,
-          message: 'Credenciales inválidas',
-          code: 'INVALID_CREDENTIALS'
-        });
-      }
-
-      // Generar token JWT simple
-      const token = jwt.sign(
-        {
-          userId: user.id,
-          email: user.email,
-          rol: user.rol
-        },
-        process.env.JWT_SECRET || 'anm_fri_secret_2025',
-        { expiresIn: '24h' }
-      );
-
-      // Actualizar último login
-      await prisma.usuario.update({
-        where: { id: user.id },
-        data: { ultimoLogin: new Date() }
-      });
-
-      res.json({
-        success: true,
-        message: 'Autenticación exitosa',
-        data: {
-          user: {
-            id: user.id,
-            email: user.email,
-            nombre: user.nombre,
-            rol: user.rol
-          },
-          token
-        }
-      });
-
-    } catch (error) {
-      console.error('❌ Error en login:', error);
-      res.status(500).json({
+const authenticateToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
         success: false,
-        message: 'Error interno del servidor'
+        message: 'Token de acceso requerido',
+        code: 'NO_TOKEN'
       });
     }
-  }
 
-  // 👤 PROFILE - Obtener perfil
-  static async getProfile(req, res) {
-    try {
-      const user = await prisma.usuario.findUnique({
-        where: { id: req.user.userId },
-        select: {
-          id: true,
-          email: true,
-          nombre: true,
-          rol: true,
-          ultimoLogin: true,
-          empresa: {
-            select: {
-              nombre: true,
-              nit: true
+    const token = authHeader.substring(7);
+
+    const decoded = jwt.verify(
+      token, 
+      process.env.JWT_SECRET || 'anm_fri_secret_2025'
+    );
+
+    const user = await prisma.usuario.findUnique({
+      where: { id: decoded.userId },
+      include: {
+        empresa: {
+          select: {
+            id: true,
+            nombre: true,
+            nit: true,
+            activa: true
+          }
+        },
+        permisos: {
+          include: {
+            permiso: {
+              select: {
+                codigo: true,
+                nombre: true,
+                modulo: true,
+                activo: true
+              }
             }
           }
         }
-      });
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'Usuario no encontrado'
-        });
       }
+    });
 
-      res.json({
-        success: true,
-        data: user
-      });
-
-    } catch (error) {
-      console.error('❌ Error obteniendo perfil:', error);
-      res.status(500).json({
+    if (!user) {
+      return res.status(401).json({
         success: false,
-        message: 'Error interno del servidor'
+        message: 'Usuario no encontrado',
+        code: 'USER_NOT_FOUND'
       });
     }
-  }
 
-  // 🚪 LOGOUT - Cerrar sesión
-  static async logout(req, res) {
-    try {
-      res.json({
-        success: true,
-        message: 'Sesión cerrada exitosamente'
-      });
-    } catch (error) {
-      console.error('❌ Error en logout:', error);
-      res.status(500).json({
+    if (!user.activo) {
+      return res.status(401).json({
         success: false,
-        message: 'Error interno del servidor'
+        message: 'Usuario inactivo',
+        code: 'USER_INACTIVE'
       });
     }
-  }
-}
 
-module.exports = AuthController;
+    req.user = {
+      userId: user.id,
+      email: user.email,
+      username: user.nombre,
+      role: user.rol,
+      rol: user.rol,
+      empresaId: user.empresaId,
+      empresa: user.empresa,
+      permisos: user.permisos
+        .filter(up => up.permiso.activo)
+        .map(up => up.permiso.codigo)
+    };
+
+    console.log(`✅ Usuario autenticado: ${user.email} (${user.rol})`);
+    next();
+
+  } catch (error) {
+    let message = 'Token inválido';
+    let code = 'INVALID_TOKEN';
+
+    if (error.name === 'TokenExpiredError') {
+      message = 'Token expirado';
+      code = 'TOKEN_EXPIRED';
+    } else if (error.name === 'JsonWebTokenError') {
+      message = 'Token malformado';
+      code = 'MALFORMED_TOKEN';
+    }
+
+    console.error(`❌ Error de autenticación: ${message}`);
+    
+    return res.status(401).json({
+      success: false,
+      message,
+      code
+    });
+  }
+};
+
+// =============================================================================
+// 👥 MIDDLEWARE DE ROLES
+// =============================================================================
+
+const requireRole = (rolesPermitidos) => {
+  return (req, res, next) => {
+    const roles = Array.isArray(rolesPermitidos) ? rolesPermitidos : [rolesPermitidos];
+    
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuario no autenticado',
+        code: 'NOT_AUTHENTICATED'
+      });
+    }
+
+    if (!roles.includes(req.user.rol)) {
+      console.log(`❌ Acceso denegado: ${req.user.email} (${req.user.rol}) necesita: ${roles.join(', ')}`);
+      
+      return res.status(403).json({
+        success: false,
+        message: 'No tienes permisos para realizar esta acción',
+        code: 'INSUFFICIENT_PERMISSIONS'
+      });
+    }
+
+    console.log(`✅ Acceso autorizado: ${req.user.email} (${req.user.rol})`);
+    next();
+  };
+};
+
+// =============================================================================
+// 🛡️ RATE LIMITERS SIMPLIFICADOS
+// =============================================================================
+
+// Rate limiter para login (prevenir ataques de fuerza bruta)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // máximo 5 intentos de login por IP
+  message: {
+    success: false,
+    message: 'Demasiados intentos de inicio de sesión. Intenta en 15 minutos.',
+    code: 'LOGIN_RATE_LIMIT'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true
+});
+
+// Rate limiter para API general
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // máximo 100 requests por ventana
+  message: {
+    success: false,
+    message: 'Demasiadas solicitudes. Intenta de nuevo más tarde.',
+    code: 'RATE_LIMIT_EXCEEDED'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// =============================================================================
+// 🔑 MIDDLEWARE DE PERMISOS
+// =============================================================================
+
+const requirePermission = (permisosRequeridos) => {
+  return (req, res, next) => {
+    const permisos = Array.isArray(permisosRequeridos) ? permisosRequeridos : [permisosRequeridos];
+    
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuario no autenticado',
+        code: 'NOT_AUTHENTICATED'
+      });
+    }
+
+    // Los ADMIN tienen todos los permisos automáticamente
+    if (req.user.rol === 'ADMIN') {
+      return next();
+    }
+
+    // Verificar permisos
+    const tienePermiso = permisos.some(permiso => req.user.permisos.includes(permiso));
+    
+    if (!tienePermiso) {
+      return res.status(403).json({
+        success: false,
+        message: 'No tienes los permisos necesarios para esta acción',
+        code: 'INSUFFICIENT_PERMISSIONS'
+      });
+    }
+
+    next();
+  };
+};
+
+// =============================================================================
+// EXPORTACIONES
+// =============================================================================
+
+module.exports = {
+  authenticateToken,
+  requireRole,
+  requirePermission,
+  authLimiter,
+  apiLimiter
+};

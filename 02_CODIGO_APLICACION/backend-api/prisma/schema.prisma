@@ -1,4 +1,4 @@
-// schema.prisma - Modelos según Resolución 371/2024
+// schema.prisma - Actualizado con modelos faltantes
 
 generator client {
   provider = "prisma-client-js"
@@ -10,23 +10,78 @@ datasource db {
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
-// USUARIOS Y AUTENTICACIÓN
-model Usuario {
-  id                String   @id @default(uuid())
-  nombre            String
-  email             String   @unique
-  passwordHash      String   @map("password_hash")
-  rol               String   // 'OPERADOR', 'SUPERVISOR', 'ADMINISTRADOR'
-  isActive          Boolean  @default(true)
-  tituloMinero      String?  @map("titulo_minero")
-  municipio         String?
-  telefono          String?
-  estado            String   @default("ACTIVO")
-  ultimoAcceso      DateTime? @map("ultimo_acceso")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+// =============================================================================
+// MODELOS DE EMPRESA Y AUTENTICACIÓN
+// =============================================================================
 
-  // Relaciones con FRIs (sin la línea problemática)
+model Empresa {
+  id        String   @id @default(uuid())
+  nombre    String
+  nit       String   @unique
+  activa    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  usuarios Usuario[]
+
+  @@map("empresas")
+}
+
+model Permiso {
+  id          String   @id @default(uuid())
+  codigo      String   @unique
+  nombre      String
+  descripcion String
+  modulo      String
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relaciones
+  usuarioPermisos UsuarioPermiso[]
+
+  @@map("permisos")
+}
+
+model UsuarioPermiso {
+  id               String   @id @default(uuid())
+  usuarioId        String   @map("usuario_id")
+  permisoId        String   @map("permiso_id")
+  asignadoPor      String   @map("asignado_por")
+  fechaAsignacion  DateTime @map("fecha_asignacion")
+
+  // Relaciones
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  permiso Permiso @relation(fields: [permisoId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, permisoId])
+  @@map("usuario_permisos")
+}
+
+// =============================================================================
+// USUARIOS Y AUTENTICACIÓN
+// =============================================================================
+
+model Usuario {
+  id           String   @id @default(uuid())
+  nombre       String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  rol          String   // 'OPERADOR', 'SUPERVISOR', 'ADMIN'
+  activo       Boolean  @default(true) @map("is_active")
+  tituloMinero String?  @map("titulo_minero")
+  municipio    String?
+  telefono     String?
+  empresaId    String?  @map("empresa_id")
+  ultimoLogin  DateTime? @map("ultimo_acceso")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  empresa         Empresa?         @relation(fields: [empresaId], references: [id])
+  permisos        UsuarioPermiso[]
+
+  // Relaciones con FRIs
   friProduccion           FRIProduccion[]
   friInventarios          FRIInventarios[]
   friParadas              FRIParadasProduccion[]
@@ -40,7 +95,10 @@ model Usuario {
   @@map("usuarios")
 }
 
+// =============================================================================
 // TÍTULOS MINEROS
+// =============================================================================
+
 model TituloMinero {
   id                String   @id @default(uuid())
   numeroTitulo      String   @unique @map("numero_titulo")
@@ -53,6 +111,10 @@ model TituloMinero {
 
   @@map("titulos_mineros")
 }
+
+// =============================================================================
+// MODELOS FRI (Los 9 formatos según Resolución 371/2024)
+// =============================================================================
 
 // 1. FRI PRODUCCIÓN (MENSUAL)
 model FRIProduccion {
@@ -268,7 +330,10 @@ model FRIProyecciones {
   @@map("fri_proyecciones")
 }
 
+// =============================================================================
 // TABLA DE AUDITORÍA
+// =============================================================================
+
 model AuditoriaFRI {
   id            String   @id @default(uuid())
   tabla         String   // Nombre de la tabla afectada
