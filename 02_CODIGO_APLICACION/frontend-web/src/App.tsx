@@ -11,6 +11,10 @@ import PremiumNavbar from './components/PremiumNavbar';
 import GestionDatos from './pages/GestionDatos';
 import EdicionInline from './pages/EdicionInline';
 import SistemaTagsVistas from './pages/SistemaTagsVistas';
+import AdminUserManagement from './components/admin/AdminUserManagement';
+import SystemMonitor from './components/admin/SystemMonitor';
+import SystemConfiguration from './components/admin/SystemConfiguration';
+
 
 // Importar componentes de accesibilidad y PWA
 import AccessibilityProvider from './components/AccessibilityProvider';
@@ -156,6 +160,9 @@ const App: React.FC = () => {
               } 
             />
 
+            <Route path="/admin/users" element={<AdminUserManagement />} />
+            <Route path="/admin/monitor" element={<SystemMonitor />} />
+            <Route path="/admin/config" element={<SystemConfiguration />} />
             {/* Ruta por defecto */}
             <Route 
               path="/" 

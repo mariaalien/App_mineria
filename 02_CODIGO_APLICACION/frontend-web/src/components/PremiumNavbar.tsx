@@ -4,9 +4,6 @@ import {
   BarChart3,
   Home,
   PieChart,
-  Settings,
-  Bell,
-  Search,
   Menu,
   X,
   ChevronDown,
@@ -35,16 +32,16 @@ const PremiumNavbar: React.FC<NavbarProps> = ({
 
   // Determinar la ruta activa basada en la URL actual
   const getCurrentRoute = () => {
-  const path = location.pathname;
-  if (path.includes('/analytics')) return 'analytics';
-  if (path.includes('/dashboard')) return 'dashboard';
-  if (path.includes('/formularios')) return 'formularios';
-  if (path.includes('/datos')) return 'datos';
-  if (path.includes('/edicion')) return 'edicion';
-  if (path.includes('/tags-vistas')) return 'tags-vistas';
-  if (path.includes('/reportes')) return 'reportes'; // <-- NUEVA LÍNEA
-  return 'dashboard';
-};
+    const path = location.pathname;
+    if (path.includes('/analytics')) return 'analytics';
+    if (path.includes('/dashboard')) return 'dashboard';
+    if (path.includes('/formularios')) return 'formularios';
+    if (path.includes('/datos')) return 'datos';
+    if (path.includes('/edicion')) return 'edicion';
+    if (path.includes('/tags-vistas')) return 'tags-vistas';
+    if (path.includes('/reportes')) return 'reportes';
+    return 'dashboard';
+  };
 
   const currentActiveRoute = activeRoute || getCurrentRoute();
 
@@ -64,46 +61,45 @@ const PremiumNavbar: React.FC<NavbarProps> = ({
       description: 'Análisis avanzados y reportes'
     },
     {
-    id: 'formularios',
-    name: 'Formularios',
-    icon: FileText,
-    route: '/formularios',
-    description: 'Gestión de formularios FRI'
+      id: 'formularios',
+      name: 'Formularios',
+      icon: FileText,
+      route: '/formularios',
+      description: 'Gestión de formularios FRI'
     },
     {
-    id: 'datos',
-    name: 'Datos',
-    icon: Table, // <-- Agregar esta importación: import { Table } from 'lucide-react'
-    route: '/datos',
-    description: 'Gestión avanzada de datos'
+      id: 'datos',
+      name: 'Datos',
+      icon: Table,
+      route: '/datos',
+      description: 'Gestión avanzada de datos'
     },
     {
-    id: 'edicion',
-    name: 'Edición',
-    icon: Edit3, // Importar: import { Edit3 } from 'lucide-react'
-    route: '/edicion',
-    description: 'Edición inline y operaciones masivas'
+      id: 'edicion',
+      name: 'Edición',
+      icon: Edit3,
+      route: '/edicion',
+      description: 'Edición inline y operaciones masivas'
     },
     {
-    id: 'tags-vistas',
-    name: 'Tags & Vistas',
-    icon: Bookmark, // Importar: import { Bookmark } from 'lucide-react'
-    route: '/tags-vistas',
-    description: 'Sistema de tags y vistas personalizadas'
+      id: 'tags-vistas',
+      name: 'Tags & Vistas',
+      icon: Bookmark,
+      route: '/tags-vistas',
+      description: 'Sistema de tags y vistas personalizadas'
     },
     {
-    id: 'reportes',
-    name: 'Reportes',
-    icon: TrendingUp,
-    route: '/reportes',
-    description: 'Sistema de reportes y analytics avanzados'
+      id: 'reportes',
+      name: 'Reportes',
+      icon: TrendingUp,
+      route: '/reportes',
+      description: 'Sistema de reportes y analytics avanzados'
     }
   ];
 
   const handleNavigation = (item: any) => {
     onRouteChange(item.id);
     setIsMobileMenuOpen(false);
-    // Usar React Router para navegar
     navigate(item.route);
   };
 
@@ -245,67 +241,9 @@ const PremiumNavbar: React.FC<NavbarProps> = ({
               })}
             </div>
 
-            {/* ACCIONES DERECHA */}
+            {/* ACCIONES DERECHA - Solo usuario y menú móvil */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               
-              {/* Búsqueda */}
-              <div style={{
-                display: window.innerWidth < 768 ? 'none' : 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                background: '#f9fafb',
-                padding: '8px 12px',
-                borderRadius: '10px',
-                border: '1px solid #e5e7eb',
-                minWidth: '200px'
-              }}>
-                <Search style={{ width: '16px', height: '16px', color: '#9ca3af' }} />
-                <input
-                  type="text"
-                  placeholder="Buscar..."
-                  style={{
-                    border: 'none',
-                    background: 'transparent',
-                    outline: 'none',
-                    fontSize: '14px',
-                    color: '#374151',
-                    width: '100%'
-                  }}
-                />
-              </div>
-
-              {/* Notificaciones */}
-              <button style={{
-                position: 'relative',
-                padding: '10px',
-                background: '#f9fafb',
-                border: '1px solid #e5e7eb',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#f3f4f6';
-                e.currentTarget.style.borderColor = '#d1d5db';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#f9fafb';
-                e.currentTarget.style.borderColor = '#e5e7eb';
-              }}
-              >
-                <Bell style={{ width: '18px', height: '18px', color: '#6b7280' }} />
-                <div style={{
-                  position: 'absolute',
-                  top: '6px',
-                  right: '6px',
-                  width: '8px',
-                  height: '8px',
-                  background: '#ef4444',
-                  borderRadius: '50%',
-                  border: '2px solid white'
-                }}></div>
-              </button>
-
               {/* Usuario */}
               <div style={{ position: 'relative' }}>
                 <button
@@ -444,34 +382,6 @@ const PremiumNavbar: React.FC<NavbarProps> = ({
                       <span>Mi Perfil</span>
                     </button>
                     
-                    <button 
-                      onClick={() => navigate('/settings')}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        padding: '12px 16px',
-                        background: 'transparent',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        color: '#374151',
-                        textAlign: 'left',
-                        transition: 'background 0.2s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = '#f9fafb';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'transparent';
-                      }}
-                    >
-                      <Settings style={{ width: '16px', height: '16px' }} />
-                      <span>Configuración</span>
-                    </button>
-                    
                     <div style={{
                       height: '1px',
                       background: '#f3f4f6',
@@ -534,7 +444,7 @@ const PremiumNavbar: React.FC<NavbarProps> = ({
         </div>
       </nav>
 
-      {/* MENÚ MÓVIL */}
+      {/* MENÚ MÓVIL - Sin búsqueda */}
       {isMobileMenuOpen && (
         <div style={{
           position: 'fixed',
@@ -559,32 +469,6 @@ const PremiumNavbar: React.FC<NavbarProps> = ({
           }}
           onClick={(e) => e.stopPropagation()}
           >
-            {/* Búsqueda móvil */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: '#f9fafb',
-              padding: '12px',
-              borderRadius: '12px',
-              border: '1px solid #e5e7eb',
-              marginBottom: '24px'
-            }}>
-              <Search style={{ width: '16px', height: '16px', color: '#9ca3af' }} />
-              <input
-                type="text"
-                placeholder="Buscar..."
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  outline: 'none',
-                  fontSize: '14px',
-                  color: '#374151',
-                  width: '100%'
-                }}
-              />
-            </div>
-
             {/* Navegación móvil */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {navigationItems.map((item) => {
