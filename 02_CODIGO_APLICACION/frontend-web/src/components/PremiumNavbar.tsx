@@ -11,6 +11,10 @@ import {
   X,
   ChevronDown,
   LogOut,
+  FileText,
+  Table,
+  Edit3,
+  Bookmark,
   User
 } from 'lucide-react';
 
@@ -53,6 +57,34 @@ const PremiumNavbar: React.FC<NavbarProps> = ({
       route: '/analytics',
       description: 'Análisis avanzados y reportes'
     },
+    {
+    id: 'formularios',
+    name: 'Formularios',
+    icon: FileText,
+    route: '/formularios',
+    description: 'Gestión de formularios FRI'
+    },
+    {
+    id: 'datos',
+    name: 'Datos',
+    icon: Table, // <-- Agregar esta importación: import { Table } from 'lucide-react'
+    route: '/datos',
+    description: 'Gestión avanzada de datos'
+    },
+    {
+    id: 'edicion',
+    name: 'Edición',
+    icon: Edit3, // Importar: import { Edit3 } from 'lucide-react'
+    route: '/edicion',
+    description: 'Edición inline y operaciones masivas'
+    },
+    {
+    id: 'tags-vistas',
+    name: 'Tags & Vistas',
+    icon: Bookmark, // Importar: import { Bookmark } from 'lucide-react'
+    route: '/tags-vistas',
+    description: 'Sistema de tags y vistas personalizadas'
+    }
   ];
 
   const handleNavigation = (item: any) => {

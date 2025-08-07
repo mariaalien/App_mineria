@@ -4,10 +4,15 @@ import Login from './pages/LoginImproved';
 import Dashboard from './pages/Dashboard';
 import AdvancedCharts from './pages/AdvancedCharts';
 import Analytics from './pages/Analytics';
+import SistemaFormularios from './pages/SistemaFormularios';
+import FormularioFRIProduccion from './pages/FormularioFRIProduccion';
 import PremiumNavbar from './components/PremiumNavbar';
+import GestionDatos from './pages/GestionDatos';
+import EdicionInline from './pages/EdicionInline';
+import SistemaTagsVistas from './pages/SistemaTagsVistas';
 
 // ============================================================================
-// COMPONENTE PRINCIPAL DE LA APLICACIÓN
+// COMPONENTE PRINCIPAL DE LA APLICACIÓN - DÍA 9 ACTUALIZADO
 // ============================================================================
 
 const App: React.FC = () => {
@@ -71,6 +76,52 @@ const App: React.FC = () => {
           element={
             <ProtectedRoute>
               <AdvancedCharts />
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* NUEVAS RUTAS - DÍA 9 */}
+        <Route 
+          path="/formularios" 
+          element={
+            <ProtectedRoute>
+              <SistemaFormularios />
+            </ProtectedRoute>
+          } 
+        />
+
+        <Route 
+          path="/formularios/produccion" 
+          element={
+            <ProtectedRoute>
+              <FormularioFRIProduccion />
+            </ProtectedRoute>
+          } 
+        />
+
+        <Route 
+          path="/datos" 
+          element={
+            <ProtectedRoute>
+              <GestionDatos />
+             </ProtectedRoute>
+          } 
+        />
+
+        <Route 
+          path="/edicion" 
+          element={
+            <ProtectedRoute>
+              <EdicionInline />
+            </ProtectedRoute>
+          } 
+        />
+
+        <Route 
+          path="/tags-vistas" 
+          element={
+            <ProtectedRoute>
+              <SistemaTagsVistas />
             </ProtectedRoute>
           } 
         />
