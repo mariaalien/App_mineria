@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   LineChart,
   Line,
@@ -15,7 +15,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  ComposedChart,
   Scatter,
   ScatterChart
 } from 'recharts';
@@ -29,12 +28,8 @@ import {
   Target,
   Download,
   RefreshCw,
-  Calendar,
   Filter,
   Eye,
-  Users,
-  MapPin,
-  DollarSign
 } from 'lucide-react';
 
 // ============================================================================
