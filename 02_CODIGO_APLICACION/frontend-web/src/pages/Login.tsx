@@ -1,5 +1,6 @@
 // src/pages/Login.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -8,129 +9,320 @@ import {
   Button,
   Typography,
   Alert,
-  CircularProgress,
-  Avatar,
-  Container,
+  Stack,
+  Chip,
+  Divider,
+  LinearProgress,
+  IconButton,
+  InputAdornment
 } from '@mui/material';
-import { LockOutlined } from '@mui/icons-material';
+import {
+  Visibility,
+  VisibilityOff,
+  Security,
+  AdminPanelSettings,
+  Engineering,
+  Business
+} from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+
+// ============================================================================
+// 🎯 INTERFACES
+// ============================================================================
+
+interface DemoUser {
+  email: string;
+  password: string;
+  rol: string;
+  description: string;
+  icon: React.ReactNode;
+  color: string;
+}
+
+// ============================================================================
+// 🏠 COMPONENTE LOGIN
+// ============================================================================
 
 const Login: React.FC = () => {
+  const navigate = useNavigate();
+  const { login, isAuthenticated, loading, isOnline, apiConnected } = useAuth();
+  
+  // Estados del formulario
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const { login, isLoading } = useAuth();
-  const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ============================================================================
+  // 👥 USUARIOS DEMO DISPONIBLES
+  // ============================================================================
+
+  const demoUsers: DemoUser[] = [
+    {
+      email: 'admin@anm.gov.co',
+      password: 'admin123',
+      rol: 'ADMIN',
+      description: 'Acceso completo al sistema',
+      icon: <AdminPanelSettings />,
+      color: '#d32f2f'
+    },
+    {
+      email: 'supervisor@anm.gov.co',
+      password: 'supervisor123',
+      rol: 'SUPERVISOR',
+      description: 'Supervisión y reportes',
+      icon: <Security />,
+      color: '#ed6c02'
+    },
+    {
+      email: 'operador@anm.gov.co',
+      password: 'operador123',
+      rol: 'OPERADOR',
+      description: 'Captura de datos FRI',
+      icon: <Engineering />,
+      color: '#2e7d32'
+    }
+  ];
+
+  // ============================================================================
+  // 🔄 EFECTOS
+  // ============================================================================
+
+  useEffect(() => {
+    // Redirigir si ya está autenticado
+    if (isAuthenticated && !loading) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, loading, navigate]);
+
+  // ============================================================================
+  // 📝 MANEJADORES DE EVENTOS
+  // ============================================================================
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-
-    if (!email || !password) {
-      setError('Por favor completa todos los campos');
+    
+    if (!email.trim() || !password.trim()) {
+      setError('Por favor ingresa email y contraseña');
       return;
     }
 
-    const success = await login(email, password);
-    if (success) {
-      navigate('/dashboard');
-    } else {
-      setError('Credenciales incorrectas');
+    if (!apiConnected) {
+      setError('No hay conexión con el servidor. Verifica tu conexión a internet.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setError('');
+
+      const result = await login({ email: email.trim(), password });
+
+      if (result.success) {
+        // El AuthProvider ya maneja la redirección
+        console.log('Login exitoso, redirigiendo...');
+      } else {
+        setError(result.message);
+      }
+    } catch (error: any) {
+      setError(error.message || 'Error de conexión');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  return (
-    <Container component="main" maxWidth="sm">
+  const handleDemoLogin = (demoUser: DemoUser) => {
+    setEmail(demoUser.email);
+    setPassword(demoUser.password);
+    setError('');
+  };
+
+  // ============================================================================
+  // 🎨 RENDERIZADO
+  // ============================================================================
+
+  if (loading) {
+    return (
       <Box
         sx={{
           minHeight: '100vh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          bgcolor: 'background.default'
         }}
       >
-        <Card sx={{ width: '100%', maxWidth: 400 }}>
-          <CardContent sx={{ p: 4 }}>
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                mb: 3,
-              }}
-            >
-              <Avatar sx={{ m: 1, bgcolor: 'primary.main' }}>
-                <LockOutlined />
-              </Avatar>
-              <Typography component="h1" variant="h4" gutterBottom>
-                Sistema ANM FRI
-              </Typography>
-              <Typography variant="subtitle1" color="text.secondary">
-                Resolución 371/2024
-              </Typography>
-            </Box>
+        <Box sx={{ width: 300, textAlign: 'center' }}>
+          <Typography variant="h6" gutterBottom>
+            Iniciando Sistema ANM FRI...
+          </Typography>
+          <LinearProgress />
+        </Box>
+      </Box>
+    );
+  }
 
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
-            )}
+  return (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: 'grey.100',
+        p: 2
+      }}
+    >
+      <Card sx={{ maxWidth: 500, width: '100%' }} elevation={8}>
+        <CardContent sx={{ p: 4 }}>
+          {/* Header */}
+          <Box sx={{ textAlign: 'center', mb: 4 }}>
+            <Business sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+            <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
+              Sistema ANM FRI
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Formatos de Reporte de Información - Agencia Nacional de Minería
+            </Typography>
+          </Box>
 
-            <Box component="form" onSubmit={handleSubmit}>
+          {/* Estado de conexión */}
+          <Box sx={{ mb: 3 }}>
+            <Stack direction="row" spacing={1} justifyContent="center">
+              <Chip
+                label={isOnline ? "En línea" : "Sin conexión"}
+                color={isOnline ? "success" : "error"}
+                size="small"
+              />
+              <Chip
+                label={apiConnected ? "API conectada" : "API desconectada"}
+                color={apiConnected ? "success" : "warning"}
+                size="small"
+              />
+            </Stack>
+          </Box>
+
+          {/* Formulario */}
+          <form onSubmit={handleSubmit}>
+            <Stack spacing={3}>
+              {error && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {error}
+                </Alert>
+              )}
+
               <TextField
-                margin="normal"
-                required
                 fullWidth
-                id="email"
-                label="Correo Electrónico"
-                name="email"
-                autoComplete="email"
-                autoFocus
+                label="Email"
+                type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
+                disabled={isSubmitting}
+                autoComplete="email"
+                autoFocus
               />
-              
+
               <TextField
-                margin="normal"
-                required
                 fullWidth
-                name="password"
                 label="Contraseña"
-                type="password"
-                id="password"
-                autoComplete="current-password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
+                disabled={isSubmitting}
+                autoComplete="current-password"
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
 
               <Button
                 type="submit"
                 fullWidth
                 variant="contained"
-                sx={{ mt: 3, mb: 2 }}
-                disabled={isLoading}
+                size="large"
+                disabled={isSubmitting || !apiConnected}
+                sx={{ py: 1.5 }}
               >
-                {isLoading ? <CircularProgress size={24} /> : 'Iniciar Sesión'}
+                {isSubmitting ? 'Iniciando sesión...' : 'Iniciar Sesión'}
               </Button>
+            </Stack>
+          </form>
 
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Credenciales de prueba:
-                </Typography>
-                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                  admin@anm.gov.co / admin123<br />
-                  operador@anm.gov.co / operador123
-                </Typography>
-              </Box>
-            </Box>
-          </CardContent>
-        </Card>
-      </Box>
-    </Container>
+          {/* Divider */}
+          <Divider sx={{ my: 3 }}>
+            <Typography variant="body2" color="text.secondary">
+              Usuarios Demo
+            </Typography>
+          </Divider>
+
+          {/* Usuarios demo */}
+          <Stack spacing={2}>
+            {demoUsers.map((user) => (
+              <Card
+                key={user.email}
+                variant="outlined"
+                sx={{
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    bgcolor: 'action.hover',
+                    borderColor: user.color
+                  }
+                }}
+                onClick={() => handleDemoLogin(user)}
+              >
+                <CardContent sx={{ py: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Box sx={{ color: user.color, mr: 2 }}>
+                      {user.icon}
+                    </Box>
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Typography variant="subtitle2" fontWeight="medium">
+                        {user.email}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {user.description}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={user.rol}
+                      size="small"
+                      sx={{
+                        bgcolor: user.color,
+                        color: 'white',
+                        fontWeight: 'bold'
+                      }}
+                    />
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+          </Stack>
+
+          {/* Footer info */}
+          <Box sx={{ mt: 3, textAlign: 'center' }}>
+            <Typography variant="caption" color="text.secondary">
+              {!apiConnected && (
+                <>⚠️ Servidor backend no disponible. Usando modo demo.</>
+              )}
+              {apiConnected && (
+                <>🟢 Conectado al backend en desarrollo.</>
+              )}
+            </Typography>
+          </Box>
+        </CardContent>
+      </Card>
+    </Box>
   );
 };
 

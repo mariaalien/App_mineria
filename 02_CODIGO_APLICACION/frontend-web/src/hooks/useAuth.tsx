@@ -1,106 +1,367 @@
 // src/hooks/useAuth.tsx
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import apiService, { User, LoginCredentials } from '../services/api.service';
 
-// Tipos locales para evitar errores de importación
-interface User {
-  id: string;
-  email: string;
-  nombre: string;
-  rol: 'ADMIN' | 'SUPERVISOR' | 'OPERADOR';
-  permisos: string[];
-}
+// ============================================================================
+// 🎯 INTERFACES Y TIPOS
+// ============================================================================
 
 interface AuthContextType {
+  // Estados
   user: User | null;
-  token: string | null;
-  login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
-  isLoading: boolean;
+  loading: boolean;
+  isAuthenticated: boolean;
+  
+  // Métodos de autenticación
+  login: (credentials: LoginCredentials) => Promise<{ success: boolean; message: string }>;
+  logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
+  
+  // Estados de conexión
+  isOnline: boolean;
+  apiConnected: boolean;
 }
-
-// Importación dinámica del servicio API
-const getApiService = async () => {
-  const module = await import('../services/api.service');
-  return module.default;
-};
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
+// ============================================================================
+// 🔄 CONTEXTO DE AUTENTICACIÓN
+// ============================================================================
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// ============================================================================
+// 🏭 PROVEEDOR DE AUTENTICACIÓN
+// ============================================================================
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [apiConnected, setApiConnected] = useState(false);
+
+  // ============================================================================
+  // 🔄 EFECTOS DE INICIALIZACIÓN
+  // ============================================================================
 
   useEffect(() => {
-    // Recuperar datos de localStorage al iniciar
-    const savedToken = localStorage.getItem('authToken');
-    const savedUser = localStorage.getItem('userData');
-
-    if (savedToken && savedUser) {
+    const initAuth = async () => {
       try {
-        setToken(savedToken);
-        setUser(JSON.parse(savedUser));
+        setLoading(true);
+        const savedUser = apiService.getCurrentUser();
+        const hasToken = apiService.isAuthenticated();
+        
+        if (savedUser && hasToken) {
+          try {
+            const currentUser = await apiService.getProfile();
+            setUser(currentUser);
+            console.log('✅ Usuario autenticado desde localStorage:', currentUser.email);
+          } catch (error) {
+            console.warn('⚠️ Token inválido, limpiando sesión');
+            await handleLogout();
+          }
+        }
       } catch (error) {
-        console.error('Error parsing saved user data:', error);
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('userData');
+        console.error('❌ Error inicializando autenticación:', error);
+        await handleLogout();
+      } finally {
+        setLoading(false);
       }
-    }
-    setIsLoading(false);
-  }, []);
+    };
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+    const setupListeners = () => {
+      const updateOnlineStatus = () => {
+        const online = navigator.onLine;
+        setIsOnline(online);
+        if (online) {
+          testApiConnection();
+        } else {
+          setApiConnected(false);
+        }
+      };
+
+      window.addEventListener('online', updateOnlineStatus);
+      window.addEventListener('offline', updateOnlineStatus);
+      return () => {
+        window.removeEventListener('online', updateOnlineStatus);
+        window.removeEventListener('offline', updateOnlineStatus);
+      };
+    };
+
+    initAuth();
+    const cleanup = setupListeners();
+    testApiConnection();
+
+    return cleanup;
+  }, []); // Dependencias vacías - solo se ejecuta una vez
+
+  // ============================================================================
+  // 🚀 INICIALIZACIÓN DE AUTENTICACIÓN
+  // ============================================================================
+
+  const initializeAuth = async () => {
     try {
-      setIsLoading(true);
-      const apiService = await getApiService();
-      const response = await apiService.login({ email, password });
-
-      if (response.success) {
-        const { token: newToken, user: userData } = response.data;
-        
-        setToken(newToken);
-        setUser(userData);
-        
-        localStorage.setItem('authToken', newToken);
-        localStorage.setItem('userData', JSON.stringify(userData));
-        
-        return true;
+      setLoading(true);
+      
+      // Verificar si hay un usuario en localStorage
+      const savedUser = apiService.getCurrentUser();
+      const hasToken = apiService.isAuthenticated();
+      
+      if (savedUser && hasToken) {
+        try {
+          // Verificar que el token sigue siendo válido
+          const currentUser = await apiService.getProfile();
+          setUser(currentUser);
+          
+          console.log('✅ Usuario autenticado desde localStorage:', currentUser.email);
+        } catch (error) {
+          console.warn('⚠️ Token inválido, limpiando sesión');
+          await handleLogout();
+        }
+      } else {
+        console.log('📝 No hay sesión activa');
       }
-      return false;
     } catch (error) {
-      console.error('Error en login:', error);
-      return false;
+      console.error('❌ Error inicializando autenticación:', error);
+      await handleLogout();
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const logout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userData');
+  // ============================================================================
+  // 🔐 MÉTODOS DE AUTENTICACIÓN
+  // ============================================================================
+
+  const handleLogin = async (credentials: LoginCredentials): Promise<{ success: boolean; message: string }> => {
+    try {
+      setLoading(true);
+      
+      const response = await apiService.login(credentials);
+      
+      if (response.success && response.data) {
+        setUser(response.data.user);
+        console.log('✅ Login exitoso:', response.data.user.email);
+        
+        return {
+          success: true,
+          message: `¡Bienvenido ${response.data.user.nombre}!`
+        };
+      } else {
+        return {
+          success: false,
+          message: response.message || 'Error de autenticación'
+        };
+      }
+    } catch (error: any) {
+      console.error('❌ Login error:', error);
+      return {
+        success: false,
+        message: error.message || 'Error de conexión con el servidor'
+      };
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const value: AuthContextType = {
+  const handleLogout = async (): Promise<void> => {
+    try {
+      setLoading(true);
+      await apiService.logout();
+      
+      setUser(null);
+      console.log('✅ Logout exitoso');
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshProfile = async (): Promise<void> => {
+    try {
+      if (!apiService.isAuthenticated()) {
+        throw new Error('No hay sesión activa');
+      }
+      
+      const currentUser = await apiService.getProfile();
+      setUser(currentUser);
+      
+      console.log('✅ Perfil actualizado:', currentUser.email);
+    } catch (error) {
+      console.error('❌ Error actualizando perfil:', error);
+      await handleLogout();
+    }
+  };
+
+  // ============================================================================
+  // 🌐 MONITOREO DE CONEXIÓN
+  // ============================================================================
+
+  const setupConnectionListeners = () => {
+    const updateOnlineStatus = () => {
+      const online = navigator.onLine;
+      setIsOnline(online);
+      
+      if (online) {
+        console.log('🌐 Conexión restaurada');
+        testApiConnection();
+      } else {
+        console.log('📶 Sin conexión a internet');
+        setApiConnected(false);
+      }
+    };
+
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+
+    return () => {
+      window.removeEventListener('online', updateOnlineStatus);
+      window.removeEventListener('offline', updateOnlineStatus);
+    };
+  };
+
+  const testApiConnection = async () => {
+    try {
+      const connected = await apiService.testConnection();
+      setApiConnected(connected);
+      
+      if (connected) {
+        console.log('✅ API conectada:', apiService.getBaseURL());
+      } else {
+        console.warn('⚠️ API no disponible');
+      }
+    } catch (error) {
+      console.error('❌ Error testando conexión API:', error);
+      setApiConnected(false);
+    }
+  };
+
+  // ============================================================================
+  // 🔄 REFRESH AUTOMÁTICO DE TOKEN
+  // ============================================================================
+
+  useEffect(() => {
+    if (!user) return;
+
+    // Configurar refresh automático cada 50 minutos
+    const refreshInterval = setInterval(async () => {
+      try {
+        await apiService.refreshToken();
+        console.log('🔄 Token renovado automáticamente');
+      } catch (error) {
+        console.warn('⚠️ Error renovando token:', error);
+        await handleLogout();
+      }
+    }, 50 * 60 * 1000); // 50 minutos
+
+    return () => clearInterval(refreshInterval);
+  }, [user]);
+
+  // ============================================================================
+  // 📤 VALOR DEL CONTEXTO
+  // ============================================================================
+
+  const contextValue: AuthContextType = {
+    // Estados
     user,
-    token,
-    login,
-    logout,
-    isLoading,
+    loading,
+    isAuthenticated: !!user && apiService.isAuthenticated(),
+    
+    // Métodos
+    login: handleLogin,
+    logout: handleLogout,
+    refreshProfile,
+    
+    // Estados de conexión
+    isOnline,
+    apiConnected
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={contextValue}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
+
+// ============================================================================
+// 🪝 HOOK PERSONALIZADO
+// ============================================================================
 
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth debe usarse dentro de AuthProvider');
+  
+  if (context === undefined) {
+    throw new Error('useAuth debe ser usado dentro de un AuthProvider');
   }
+  
   return context;
+};
+
+// ============================================================================
+// 🛡️ HOC PARA RUTAS PROTEGIDAS
+// ============================================================================
+
+interface RequireAuthProps {
+  children: ReactNode;
+  roles?: string[];
+  fallback?: ReactNode;
+}
+
+export const RequireAuth: React.FC<RequireAuthProps> = ({ 
+  children, 
+  roles = [], 
+  fallback = <div>No autorizado</div> 
+}) => {
+  const { user, loading, isAuthenticated } = useAuth();
+
+  if (loading) {
+    return <div>Cargando...</div>;
+  }
+
+  if (!isAuthenticated || !user) {
+    // Redirigir al login
+    window.location.href = '/login';
+    return null;
+  }
+
+  if (roles.length > 0 && !roles.includes(user.rol)) {
+    return <>{fallback}</>;
+  }
+
+  return <>{children}</>;
+};
+
+// ============================================================================
+  // 🎯 HOOK PARA PERMISOS
+// ============================================================================
+
+export const usePermissions = () => {
+  const { user } = useAuth();
+
+  const hasPermission = (permission: string): boolean => {
+    if (!user) return false;
+    return user.permisos.includes(permission);
+  };
+
+  const hasRole = (role: string): boolean => {
+    if (!user) return false;
+    return user.rol === role;
+  };
+
+  const hasAnyRole = (roles: string[]): boolean => {
+    if (!user) return false;
+    return roles.includes(user.rol);
+  };
+
+  return {
+    hasPermission,
+    hasRole,
+    hasAnyRole,
+    userRole: user?.rol,
+    userPermissions: user?.permisos || []
+  };
 };
