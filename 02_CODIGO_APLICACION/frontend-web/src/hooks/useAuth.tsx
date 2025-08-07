@@ -101,35 +101,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // 🚀 INICIALIZACIÓN DE AUTENTICACIÓN
   // ============================================================================
 
-  const initializeAuth = async () => {
-    try {
-      setLoading(true);
-      
-      // Verificar si hay un usuario en localStorage
-      const savedUser = apiService.getCurrentUser();
-      const hasToken = apiService.isAuthenticated();
-      
-      if (savedUser && hasToken) {
-        try {
-          // Verificar que el token sigue siendo válido
-          const currentUser = await apiService.getProfile();
-          setUser(currentUser);
-          
-          console.log('✅ Usuario autenticado desde localStorage:', currentUser.email);
-        } catch (error) {
-          console.warn('⚠️ Token inválido, limpiando sesión');
-          await handleLogout();
-        }
-      } else {
-        console.log('📝 No hay sesión activa');
-      }
-    } catch (error) {
-      console.error('❌ Error inicializando autenticación:', error);
-      await handleLogout();
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // ============================================================================
   // 🔐 MÉTODOS DE AUTENTICACIÓN
@@ -200,28 +171,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // 🌐 MONITOREO DE CONEXIÓN
   // ============================================================================
 
-  const setupConnectionListeners = () => {
-    const updateOnlineStatus = () => {
-      const online = navigator.onLine;
-      setIsOnline(online);
-      
-      if (online) {
-        console.log('🌐 Conexión restaurada');
-        testApiConnection();
-      } else {
-        console.log('📶 Sin conexión a internet');
-        setApiConnected(false);
-      }
-    };
-
-    window.addEventListener('online', updateOnlineStatus);
-    window.addEventListener('offline', updateOnlineStatus);
-
-    return () => {
-      window.removeEventListener('online', updateOnlineStatus);
-      window.removeEventListener('offline', updateOnlineStatus);
-    };
-  };
 
   const testApiConnection = async () => {
     try {

@@ -1,144 +1,106 @@
-// src/App.tsx
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
-import { AuthProvider, RequireAuth } from './hooks/useAuth';
-import Login from './pages/Login';
+
+// Importar tus componentes
+import LoginImproved from './pages/LoginImproved';
 import Dashboard from './pages/Dashboard';
+import AdvancedCharts from './pages/AdvancedCharts'; // NUEVA RUTA
 
-// ============================================================================
-// 🎨 TEMA DE MATERIAL-UI
-// ============================================================================
+// Componente de ruta protegida
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const token = localStorage.getItem('token');
+  
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return <>{children}</>;
+};
 
-const theme = createTheme({
-  palette: {
-    mode: 'light',
-    primary: {
-      main: '#1976d2', // Azul ANM
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-    background: {
-      default: '#f5f5f5',
-    },
-  },
-  typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-    h4: {
-      fontWeight: 600,
-    },
-    h6: {
-      fontWeight: 500,
-    },
-  },
-  components: {
-    MuiCard: {
-      defaultProps: {
-        elevation: 2,
-      },
-      styleOverrides: {
-        root: {
-          borderRadius: 12,
-        },
-      },
-    },
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: 8,
-          textTransform: 'none',
-          fontWeight: 500,
-        },
-      },
-    },
-  },
-});
+// Layout con navegación
+const Layout = ({ children }: { children: React.ReactNode }) => {
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+  };
 
-// ============================================================================
-// 🛡️ COMPONENTE DE RUTA PROTEGIDA
-// ============================================================================
+  return (
+    <div style={{ minHeight: '100vh' }}>
+      {/* Header simple */}
+      <header style={{
+        background: 'white',
+        padding: '16px 24px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <h1 style={{ margin: 0, color: '#1f2937' }}>Sistema ANM FRI</h1>
+        
+        <nav style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <a href="/dashboard" style={{ color: '#3b82f6', textDecoration: 'none' }}>
+            📊 Dashboard
+          </a>
+          <a href="/analytics" style={{ color: '#3b82f6', textDecoration: 'none' }}>
+            📈 Analytics
+          </a>
+          <button onClick={handleLogout} style={{
+            padding: '8px 16px',
+            background: '#ef4444',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer'
+          }}>
+            Salir
+          </button>
+        </nav>
+      </header>
+      
+      <main style={{ padding: '24px' }}>
+        {children}
+      </main>
+    </div>
+  );
+};
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-  roles?: string[];
+function App() {
+  return (
+    <Router>
+      <Routes>
+        {/* Ruta pública */}
+        <Route path="/login" element={<LoginImproved />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        
+        {/* Rutas protegidas */}
+        <Route path="/dashboard" element={
+          <ProtectedRoute>
+            <Layout>
+              <Dashboard />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        
+        {/* NUEVA RUTA: Analytics */}
+        <Route path="/analytics" element={
+          <ProtectedRoute>
+            <Layout>
+              <AdvancedCharts />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        
+        {/* 404 */}
+        <Route path="*" element={
+          <div style={{ textAlign: 'center', padding: '50px' }}>
+            <h1>404 - Página no encontrada</h1>
+            <a href="/dashboard">Volver al Dashboard</a>
+          </div>
+        } />
+      </Routes>
+    </Router>
+  );
 }
-
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, roles }) => {
-  return (
-    <RequireAuth roles={roles}>
-      {children}
-    </RequireAuth>
-  );
-};
-
-// ============================================================================
-// 🏠 COMPONENTE PRINCIPAL DE LA APP
-// ============================================================================
-
-const App: React.FC = () => {
-  return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <AuthProvider>
-        <Router>
-          <Routes>
-            {/* Ruta pública - Login */}
-            <Route path="/login" element={<Login />} />
-            
-            {/* Rutas protegidas */}
-            <Route 
-              path="/dashboard" 
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } 
-            />
-            
-            {/* Rutas con roles específicos */}
-            <Route 
-              path="/admin" 
-              element={
-                <ProtectedRoute roles={['ADMIN']}>
-                  <div>Panel de Administración (Solo ADMIN)</div>
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route 
-              path="/reports" 
-              element={
-                <ProtectedRoute roles={['SUPERVISOR', 'ADMIN']}>
-                  <div>Reportes (SUPERVISOR y ADMIN)</div>
-                </ProtectedRoute>
-              } 
-            />
-            
-            {/* Redirección por defecto */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            
-            {/* Ruta 404 */}
-            <Route 
-              path="*" 
-              element={
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'center', 
-                  alignItems: 'center', 
-                  minHeight: '100vh',
-                  flexDirection: 'column'
-                }}>
-                  <h1>404 - Página no encontrada</h1>
-                  <p>La página que buscas no existe.</p>
-                </div>
-              } 
-            />
-          </Routes>
-        </Router>
-      </AuthProvider>
-    </ThemeProvider>
-  );
-};
 
 export default App;
