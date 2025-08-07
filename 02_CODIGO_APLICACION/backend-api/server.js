@@ -537,6 +537,18 @@ app.use('*', (req, res) => {
   });
 });
 
+// =============================================================================
+// 🚀 NUEVAS RUTAS DÍA 11 - SISTEMA DE REPORTES Y ANALYTICS
+// =============================================================================
+const reportGeneratorRoutes = require('./routes/reportGenerator');
+const advancedAnalyticsRoutes = require('./routes/advancedAnalytics');
+const exportAdvancedRoutes = require('./routes/exportAdvanced');
+
+// Integrar las nuevas rutas
+app.use('/api/reports/generator', reportGeneratorRoutes);
+app.use('/api/analytics', advancedAnalyticsRoutes);
+app.use('/api/export', exportAdvancedRoutes);
+
 // Global Error Handler (debe ir al final)
 app.use(globalErrorHandler);
 

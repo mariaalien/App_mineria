@@ -1,25 +1,249 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "name": "Sistema ANM FRI - Resolución 371/2024",
+  "short_name": "ANM FRI",
+  "description": "Sistema de Gestión de Formatos de Reportes de Información de la Agencia Nacional de Minería de Colombia",
+  "version": "2.1.0",
+  "manifest_version": 2,
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "lang": "es",
+  "dir": "ltr",
+  
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "maskable any"
     },
     {
-      "src": "logo192.png",
+      "src": "/icons/icon-96x96.png",
+      "sizes": "96x96",
       "type": "image/png",
-      "sizes": "192x192"
+      "purpose": "maskable any"
     },
     {
-      "src": "logo512.png",
+      "src": "/icons/icon-128x128.png",
+      "sizes": "128x128",
       "type": "image/png",
-      "sizes": "512x512"
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
     }
   ],
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop-dashboard.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "platform": "wide",
+      "label": "Dashboard principal del Sistema ANM FRI"
+    },
+    {
+      "src": "/screenshots/mobile-dashboard.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "platform": "narrow",
+      "label": "Dashboard móvil del Sistema ANM FRI"
+    },
+    {
+      "src": "/screenshots/desktop-reports.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "platform": "wide",
+      "label": "Módulo de reportes y analytics"
+    },
+    {
+      "src": "/screenshots/mobile-forms.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "platform": "narrow",
+      "label": "Formularios FRI en dispositivo móvil"
+    }
+  ],
+  
+  "categories": [
+    "business",
+    "productivity",
+    "government",
+    "utilities"
+  ],
+  
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Ir al dashboard principal",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/icons/shortcut-dashboard.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Nuevo FRI",
+      "short_name": "Nuevo FRI",
+      "description": "Crear nuevo formulario FRI",
+      "url": "/formularios/nuevo",
+      "icons": [
+        {
+          "src": "/icons/shortcut-form.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Reportes",
+      "short_name": "Reportes",
+      "description": "Ver reportes y analytics",
+      "url": "/reportes",
+      "icons": [
+        {
+          "src": "/icons/shortcut-reports.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Datos",
+      "short_name": "Datos",
+      "description": "Gestión de datos",
+      "url": "/datos",
+      "icons": [
+        {
+          "src": "/icons/shortcut-data.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "https://anm-fri.ctglobal.com.co"
+    }
+  ],
+  
+  "prefer_related_applications": false,
+  
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
+  
+  "file_handlers": [
+    {
+      "action": "/formularios/importar",
+      "accept": {
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+        "application/vnd.ms-excel": [".xls"],
+        "text/csv": [".csv"]
+      },
+      "icons": [
+        {
+          "src": "/icons/file-handler.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  
+  "protocol_handlers": [
+    {
+      "protocol": "web+anmfri",
+      "url": "/abrir?url=%s"
+    }
+  ],
+  
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  
+  "display_override": ["window-controls-overlay", "minimal-ui"],
+  
+  "iarc_rating_id": "e58c174a-81d2-5c3c-32cc-34b8de4a52e9",
+  
+  "features": [
+    "offline-support",
+    "push-notifications",
+    "background-sync",
+    "file-handling",
+    "accessibility",
+    "responsive-design"
+  ],
+  
+  "permissions": [
+    "storage",
+    "notifications",
+    "background-sync"
+  ],
+  
+  "gcm_sender_id": "103953800507",
+  
+  "share_target": {
+    "action": "/compartir",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "files",
+          "accept": [
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.ms-excel",
+            "text/csv",
+            "application/pdf"
+          ]
+        }
+      ]
+    }
+  },
+  
+  "note_taking": {
+    "new_note_url": "/formularios/nuevo"
+  },
+  
+  "handle_links": "preferred",
+  
+  "id": "anm-fri-system",
+  
+  "capture_links": "existing-client-navigate"
 }

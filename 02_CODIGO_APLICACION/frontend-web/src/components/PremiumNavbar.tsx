@@ -15,7 +15,8 @@ import {
   Table,
   Edit3,
   Bookmark,
-  User
+  User,
+  TrendingUp
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -34,11 +35,16 @@ const PremiumNavbar: React.FC<NavbarProps> = ({
 
   // Determinar la ruta activa basada en la URL actual
   const getCurrentRoute = () => {
-    const path = location.pathname;
-    if (path.includes('/analytics')) return 'analytics';
-    if (path.includes('/dashboard')) return 'dashboard';
-    return 'dashboard';
-  };
+  const path = location.pathname;
+  if (path.includes('/analytics')) return 'analytics';
+  if (path.includes('/dashboard')) return 'dashboard';
+  if (path.includes('/formularios')) return 'formularios';
+  if (path.includes('/datos')) return 'datos';
+  if (path.includes('/edicion')) return 'edicion';
+  if (path.includes('/tags-vistas')) return 'tags-vistas';
+  if (path.includes('/reportes')) return 'reportes'; // <-- NUEVA LÍNEA
+  return 'dashboard';
+};
 
   const currentActiveRoute = activeRoute || getCurrentRoute();
 
@@ -84,6 +90,13 @@ const PremiumNavbar: React.FC<NavbarProps> = ({
     icon: Bookmark, // Importar: import { Bookmark } from 'lucide-react'
     route: '/tags-vistas',
     description: 'Sistema de tags y vistas personalizadas'
+    },
+    {
+    id: 'reportes',
+    name: 'Reportes',
+    icon: TrendingUp,
+    route: '/reportes',
+    description: 'Sistema de reportes y analytics avanzados'
     }
   ];
 
