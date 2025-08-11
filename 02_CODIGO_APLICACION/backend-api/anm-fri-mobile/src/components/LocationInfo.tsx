@@ -1,4 +1,4 @@
-// src/components/LocationInfo.tsx - Información GPS y ubicación
+// src/components/LocationInfo.tsx - Arreglado para Expo SDK 49+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -67,6 +67,43 @@ export default function LocationInfo({
     }
   };
 
+  // Función para obtener dirección aproximada sin reverseGeocode
+  const getApproximateAddress = (lat: number, lng: number): string => {
+    // Coordenadas aproximadas de Colombia
+    let region = 'Colombia';
+    
+    // Bogotá aproximada: 4.7110, -74.0721
+    if (lat > 4.4 && lat < 5.0 && lng > -74.5 && lng < -73.8) {
+      region = 'Bogotá D.C., Colombia';
+    }
+    // Medellín aproximada: 6.2442, -75.5812
+    else if (lat > 6.0 && lat < 6.5 && lng > -76.0 && lng < -75.3) {
+      region = 'Medellín, Antioquia';
+    }
+    // Cali aproximada: 3.4516, -76.5320
+    else if (lat > 3.2 && lat < 3.7 && lng > -77.0 && lng < -76.2) {
+      region = 'Cali, Valle del Cauca';
+    }
+    // Cartagena aproximada: 10.3910, -75.4794
+    else if (lat > 10.1 && lat < 10.7 && lng > -75.8 && lng < -75.2) {
+      region = 'Cartagena, Bolívar';
+    }
+    // Zona norte (Caribe)
+    else if (lat > 8.0) {
+      region = 'Región Caribe, Colombia';
+    }
+    // Zona sur
+    else if (lat < 2.0) {
+      region = 'Región Amazónica, Colombia';
+    }
+    // Zona central
+    else {
+      region = 'Región Central, Colombia';
+    }
+    
+    return region;
+  };
+
   const getCurrentLocation = async () => {
     if (!hasPermission) {
       await requestLocationPermission();
@@ -85,18 +122,18 @@ export default function LocationInfo({
         timeInterval: 5000, // 5 segundos máximo de espera
       });
 
-      // Obtener dirección legible
-      const [addressInfo] = await Location.reverseGeocodeAsync({
-        latitude: locationResult.coords.latitude,
-        longitude: locationResult.coords.longitude,
-      });
+      // Obtener dirección aproximada (sin reverseGeocode que fue removido)
+      const approximateAddress = getApproximateAddress(
+        locationResult.coords.latitude,
+        locationResult.coords.longitude
+      );
 
       const locationData: LocationData = {
         latitude: locationResult.coords.latitude,
         longitude: locationResult.coords.longitude,
         accuracy: locationResult.coords.accuracy || 0,
         altitude: locationResult.coords.altitude || undefined,
-        address: `${addressInfo.street || ''} ${addressInfo.city || ''}, ${addressInfo.region || ''}`.trim(),
+        address: approximateAddress,
         timestamp: new Date().toISOString(),
       };
 
@@ -232,8 +269,11 @@ export default function LocationInfo({
 
           {location.address && (
             <View style={styles.addressContainer}>
-              <Text style={styles.addressLabel}>Dirección</Text>
+              <Text style={styles.addressLabel}>Ubicación Aproximada</Text>
               <Text style={styles.addressValue}>{location.address}</Text>
+              <Text style={styles.addressNote}>
+                📍 Nota: Ubicación estimada basada en coordenadas GPS
+              </Text>
             </View>
           )}
 
@@ -341,6 +381,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     lineHeight: 20,
+    marginBottom: 4,
+  },
+  addressNote: {
+    fontSize: 11,
+    color: '#999',
+    fontStyle: 'italic',
   },
   timestampContainer: {
     alignItems: 'center',

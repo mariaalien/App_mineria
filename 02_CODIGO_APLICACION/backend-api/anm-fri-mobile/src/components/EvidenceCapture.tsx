@@ -1,4 +1,4 @@
-// src/components/EvidenceCapture.tsx - Captura de fotos con GPS
+// src/components/EvidenceCapture.tsx - VERSIÓN CORREGIDA SIN ERRORES DE SINTAXIS
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -15,6 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import PremiumButton from './PremiumButton';
+import { ExportShareService } from '../services/exportShareService';
 
 interface EvidenceItem {
   id: string;
@@ -45,6 +46,7 @@ export default function EvidenceCapture({
   const [currentLocation, setCurrentLocation] = useState<Location.LocationObject | null>(null);
   const [locationPermission, setLocationPermission] = useState<boolean>(false);
   const [cameraPermission, setCameraPermission] = useState<boolean>(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     requestPermissions();
@@ -115,13 +117,12 @@ export default function EvidenceCapture({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.8, // Optimizar tamaño para móvil
+        quality: 0.8,
       });
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
         
-        // Crear evidencia con metadatos
         const newEvidence: EvidenceItem = {
           id: Date.now().toString(),
           uri: asset.uri,
@@ -129,7 +130,6 @@ export default function EvidenceCapture({
           type: type,
         };
 
-        // Agregar ubicación si está disponible
         if (currentLocation) {
           const [addressInfo] = await Location.reverseGeocodeAsync({
             latitude: currentLocation.coords.latitude,
@@ -153,7 +153,7 @@ export default function EvidenceCapture({
 
         Alert.alert(
           '📸 Evidencia Capturada',
-          `Foto de ${type} guardada con ${currentLocation ? 'ubicación GPS' : 'información básica'}`,
+          `Foto de ${type} guardada con ${currentLocation ? 'GPS incluido' : 'sin GPS'}`,
           [{ text: 'OK' }]
         );
       }
@@ -163,57 +163,51 @@ export default function EvidenceCapture({
     }
   };
 
-  const selectFromGallery = async (type: string) => {
+  const exportEvidence = async () => {
+    if (evidence.length === 0) {
+      Alert.alert('Sin Evidencias', 'No hay evidencias para exportar');
+      return;
+    }
+
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
+      setIsExporting(true);
+
+      // Preparar datos para exportación
+      const evidenceData = evidence.map(item => ({
+        id: item.id,
+        tipo: item.type,
+        fecha: new Date(item.timestamp).toLocaleString(),
+        ubicacion: item.location ? {
+          latitud: item.location.latitude,
+          longitud: item.location.longitude,
+          precision: item.location.accuracy,
+          direccion: item.location.address
+        } : 'Sin ubicación',
+        archivo: item.uri
+      }));
+
+      // Usar el servicio de exportación
+      await ExportShareService.exportAndShare(evidenceData, {
+        fileName: `evidencias_fri_${new Date().getTime()}`,
+        format: 'json',
+        includePhotos: true
       });
 
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        
-        const newEvidence: EvidenceItem = {
-          id: Date.now().toString(),
-          uri: asset.uri,
-          timestamp: new Date().toISOString(),
-          type: type,
-        };
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Éxito', 'Evidencias exportadas correctamente');
 
-        // Agregar ubicación actual (no de la foto)
-        if (currentLocation) {
-          const [addressInfo] = await Location.reverseGeocodeAsync({
-            latitude: currentLocation.coords.latitude,
-            longitude: currentLocation.coords.longitude,
-          });
-
-          newEvidence.location = {
-            latitude: currentLocation.coords.latitude,
-            longitude: currentLocation.coords.longitude,
-            accuracy: currentLocation.coords.accuracy || 0,
-            address: `${addressInfo.city || 'Desconocida'}, ${addressInfo.region || 'Desconocida'}`,
-          };
-        }
-
-        const updatedEvidence = [...evidence, newEvidence];
-        setEvidence(updatedEvidence);
-        onEvidenceAdd(updatedEvidence);
-
-        setShowModal(false);
-      }
     } catch (error) {
-      console.error('Error selecting photo:', error);
+      console.error('❌ Error exportando evidencias:', error);
+      Alert.alert('Error', 'No se pudieron exportar las evidencias');
+    } finally {
+      setIsExporting(false);
     }
   };
 
   const removeEvidence = (id: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
     Alert.alert(
       'Eliminar Evidencia',
-      '¿Estás seguro de que quieres eliminar esta foto?',
+      '¿Estás seguro de que quieres eliminar esta evidencia?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -223,68 +217,142 @@ export default function EvidenceCapture({
             const updatedEvidence = evidence.filter(item => item.id !== id);
             setEvidence(updatedEvidence);
             onEvidenceAdd(updatedEvidence);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          },
-        },
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }
+        }
       ]
     );
   };
 
-  const formatDate = (isoString: string) => {
-    return new Date(isoString).toLocaleDateString('es-CO', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   return (
     <View style={styles.container}>
+      {/* Header con botón de exportación */}
       <View style={styles.header}>
-        <Text style={styles.title}>Evidencia Fotográfica</Text>
-        <Text style={styles.subtitle}>
-          {evidence.length}/{maxPhotos} fotos • {currentLocation ? '📍 GPS Activo' : '📍 GPS Inactivo'}
-        </Text>
+        <Text style={styles.title}>📸 Evidencia Fotográfica</Text>
+        <View style={styles.headerButtons}>
+          {/* Botón de exportar en header */}
+          <TouchableOpacity 
+            style={[
+              styles.exportButton,
+              evidence.length === 0 && styles.disabledButton
+            ]} 
+            onPress={exportEvidence}
+            disabled={evidence.length === 0 || isExporting}
+          >
+            <Ionicons 
+              name={isExporting ? "hourglass-outline" : "share-outline"} 
+              size={20} 
+              color={evidence.length > 0 && !isExporting ? "#007AFF" : "#999"} 
+            />
+          </TouchableOpacity>
+          
+          {/* Botón de cámara existente */}
+          <TouchableOpacity 
+            style={styles.addButton} 
+            onPress={() => setShowModal(true)}
+            disabled={evidence.length >= maxPhotos}
+          >
+            <Ionicons 
+              name="camera" 
+              size={20} 
+              color={evidence.length < maxPhotos ? "#007AFF" : "#999"} 
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Galería de evidencias */}
+      {/* Status con indicador de exportación */}
+      <View style={styles.statusContainer}>
+        <Text style={styles.subtitle}>
+          {evidence.length}/{maxPhotos} fotos capturadas
+        </Text>
+        {isExporting && (
+          <Text style={styles.exportingText}>
+            📤 Exportando evidencias...
+          </Text>
+        )}
+      </View>
+
+      {/* Galería con botón flotante */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.gallery}>
         {evidence.map((item) => (
-          <View key={item.id} style={styles.evidenceItem}>
+          <View key={item.id} style={styles.evidenceCard}>
             <Image source={{ uri: item.uri }} style={styles.evidenceImage} />
-            <TouchableOpacity
+            <View style={styles.evidenceInfo}>
+              <Text style={styles.evidenceType}>{item.type}</Text>
+              <Text style={styles.evidenceTime}>
+                {new Date(item.timestamp).toLocaleTimeString()}
+              </Text>
+              {item.location && (
+                <View style={styles.locationBadge}>
+                  <Ionicons name="location" size={12} color="#00C851" />
+                  <Text style={styles.locationText}>GPS</Text>
+                </View>
+              )}
+            </View>
+            <TouchableOpacity 
               style={styles.removeButton}
               onPress={() => removeEvidence(item.id)}
             >
-              <Ionicons name="close-circle" size={24} color="#e74c3c" />
+              <Ionicons name="close-circle" size={20} color="#FF3B30" />
             </TouchableOpacity>
-            <View style={styles.evidenceInfo}>
-              <Text style={styles.evidenceType}>{item.type}</Text>
-              <Text style={styles.evidenceTime}>{formatDate(item.timestamp)}</Text>
-              {item.location && (
-                <Text style={styles.evidenceLocation}>
-                  📍 {item.location.address}
-                </Text>
-              )}
-            </View>
           </View>
         ))}
-
-        {/* Botón para agregar nueva evidencia */}
-        {evidence.length < maxPhotos && (
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => setShowModal(true)}
-          >
-            <Ionicons name="camera" size={32} color="#2E7D32" />
-            <Text style={styles.addButtonText}>Agregar Foto</Text>
-          </TouchableOpacity>
+        
+        {/* Botón flotante en galería */}
+        {evidence.length > 0 && (
+          <View style={styles.floatingExportContainer}>
+            <TouchableOpacity 
+              style={styles.floatingExportButton}
+              onPress={exportEvidence}
+              disabled={isExporting}
+            >
+              <Ionicons 
+                name={isExporting ? "hourglass-outline" : "cloud-upload-outline"} 
+                size={20} 
+                color="white" 
+              />
+              <Text style={styles.floatingButtonText}>
+                {isExporting ? 'Exportando...' : 'Exportar'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
       </ScrollView>
 
-      {/* Modal de selección de tipo */}
+      {/* Sección de acciones principales */}
+      {evidence.length > 0 && (
+        <View style={styles.actionsSection}>
+          <TouchableOpacity 
+            style={[
+              styles.primaryExportButton,
+              isExporting && styles.exportingButton
+            ]}
+            onPress={exportEvidence}
+            disabled={isExporting}
+          >
+            <View style={styles.exportButtonContent}>
+              <Ionicons 
+                name={isExporting ? "sync-outline" : "cloud-upload-outline"} 
+                size={20} 
+                color="white" 
+              />
+              <Text style={styles.primaryButtonText}>
+                {isExporting ? 'Exportando Evidencias...' : 'Exportar y Compartir'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          
+          <View style={styles.exportInfo}>
+            <Text style={styles.infoText}>
+              📋 {evidence.length} evidencia(s) • 
+              📍 {evidence.filter(e => e.location).length} con GPS
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* Modal de tipos de evidencia */}
       <Modal
         visible={showModal}
         animationType="slide"
@@ -293,33 +361,23 @@ export default function EvidenceCapture({
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Tipo de Evidencia</Text>
+            <Text style={styles.modalTitle}>Seleccionar Tipo de Evidencia</Text>
             <TouchableOpacity onPress={() => setShowModal(false)}>
-              <Ionicons name="close" size={24} color="#666" />
+              <Ionicons name="close" size={24} color="#007AFF" />
             </TouchableOpacity>
           </View>
-
-          <ScrollView style={styles.modalContent}>
+          
+          <ScrollView style={styles.typesList}>
             {evidenceTypes.map((type) => (
-              <View key={type} style={styles.typeSection}>
-                <Text style={styles.typeTitle}>{type}</Text>
-                <View style={styles.captureOptions}>
-                  <PremiumButton
-                    title="📸 Tomar Foto"
-                    onPress={() => capturePhoto(type)}
-                    variant="primary"
-                    size="medium"
-                    icon={<Ionicons name="camera" size={16} color="white" />}
-                  />
-                  <PremiumButton
-                    title="🖼️ Galería"
-                    onPress={() => selectFromGallery(type)}
-                    variant="secondary"
-                    size="medium"
-                    icon={<Ionicons name="images" size={16} color="#2E7D32" />}
-                  />
-                </View>
-              </View>
+              <TouchableOpacity
+                key={type}
+                style={styles.typeButton}
+                onPress={() => capturePhoto(type)}
+              >
+                <Ionicons name="camera-outline" size={24} color="#007AFF" />
+                <Text style={styles.typeText}>{type}</Text>
+                <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+              </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
@@ -330,126 +388,204 @@ export default function EvidenceCapture({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 20,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 16,
+    margin: 16,
   },
   header: {
-    marginBottom: 15,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   title: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '600',
+    color: '#1D1D1F',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  exportButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#F0F8FF',
+    minWidth: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#F5F5F5',
+    opacity: 0.6,
+  },
+  addButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#F0F8FF',
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   subtitle: {
     fontSize: 14,
-    color: '#666',
-    marginTop: 4,
+    color: '#6D6D80',
+  },
+  exportingText: {
+    fontSize: 12,
+    color: '#007AFF',
+    fontStyle: 'italic',
   },
   gallery: {
-    flexDirection: 'row',
+    maxHeight: 200,
   },
-  evidenceItem: {
-    marginRight: 15,
+  evidenceCard: {
+    width: 150,
+    marginRight: 12,
+    borderRadius: 8,
     backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    width: 180,
   },
   evidenceImage: {
-    width: 164,
-    height: 120,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
+    width: '100%',
+    height: 100,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+  },
+  evidenceInfo: {
+    padding: 8,
+  },
+  evidenceType: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1D1D1F',
+  },
+  evidenceTime: {
+    fontSize: 10,
+    color: '#6D6D80',
+    marginTop: 2,
+  },
+  locationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  locationText: {
+    fontSize: 10,
+    color: '#00C851',
+    marginLeft: 2,
   },
   removeButton: {
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: 'white',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 10,
   },
-  evidenceInfo: {
-    marginTop: 8,
+  floatingExportContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    minWidth: 120,
   },
-  evidenceType: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  evidenceTime: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  evidenceLocation: {
-    fontSize: 11,
-    color: '#2E7D32',
-    marginTop: 2,
-  },
-  addButton: {
-    width: 180,
-    height: 120,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#2E7D32',
-    borderStyle: 'dashed',
+  floatingExportButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+    gap: 2,
   },
-  addButtonText: {
-    fontSize: 14,
-    color: '#2E7D32',
+  floatingButtonText: {
+    color: 'white', // ⬅️ CORREGIDO: agregado el valor del color
+    fontSize: 11,
     fontWeight: '600',
-    marginTop: 8,
   },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
+  actionsSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5EA',
   },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  modalContent: {
-    flex: 1,
-    padding: 20,
-  },
-  typeSection: {
-    marginBottom: 30,
-    backgroundColor: 'white',
+  primaryExportButton: {
+    backgroundColor: '#007AFF',
     borderRadius: 12,
-    padding: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  typeTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
+  exportingButton: {
+    backgroundColor: '#5AC8FA',
   },
-  captureOptions: {
+  exportButtonContent: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  primaryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  exportInfo: {
+    alignItems: 'center',
+  },
+  infoText: {
+    fontSize: 12,
+    color: '#6D6D80',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1D1D1F',
+  },
+  typesList: {
+    flex: 1,
+    padding: 16,
+  },
+  typeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
+  },
+  typeText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1D1D1F',
+    marginLeft: 12,
   },
 });

@@ -1,216 +1,160 @@
-// app/(tabs)/fri.tsx - Pantalla principal de FRI con formularios
-import React, { useState, useEffect } from 'react';
+// app/(tabs)/fri.tsx - Nueva tab para gestión de FRIs
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  RefreshControl,
+  SafeAreaView,
   Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
-import { fetchFRIData, fetchFRIStats } from '../../src/store/slices/friSlice';
-import { RootState, AppDispatch } from '../../src/store/store';
-import FRIForm from '../../src/components/FRIForm';
+import { router } from 'expo-router';
 
-export default function FRIScreen() {
-  const dispatch = useDispatch<AppDispatch>();
-  const { items, isLoading, stats } = useSelector((state: RootState) => state.fri);
-  const [showForm, setShowForm] = useState(false);
-  const [selectedFRIType, setSelectedFRIType] = useState<'produccion' | 'inventarios' | 'paradas'>('produccion');
-  const [refreshing, setRefreshing] = useState(false);
+import FRITypeSelectionScreen from '../../src/screens/FRITypeSelectionScreen';
 
-  useEffect(() => {
-    loadData();
-  }, []);
+export default function FRITab() {
+  const [showNewFRIModal, setShowNewFRIModal] = useState(false);
 
-  const loadData = async () => {
-    try {
-      await dispatch(fetchFRIData('produccion')).unwrap();
-      await dispatch(fetchFRIStats()).unwrap();
-    } catch (error) {
-      console.error('Error cargando datos FRI:', error);
+  const handleCreateNewFRI = () => {
+    setShowNewFRIModal(true);
+  };
+
+  const mockNavigation = {
+    goBack: () => setShowNewFRIModal(false),
+    navigate: (screen: string, params?: any) => {
+      console.log('Navegando a:', screen, params);
     }
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
-  };
-
-  const openForm = (tipo: 'produccion' | 'inventarios' | 'paradas') => {
-    setSelectedFRIType(tipo);
-    setShowForm(true);
-  };
-
-  const closeForm = () => {
-    setShowForm(false);
-    loadData(); // Recargar datos después de crear FRI
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-CO');
-  };
-
-  const FRITypeCard = ({ 
-    title, 
-    description, 
-    icon, 
-    count, 
-    onPress 
-  }: {
-    title: string;
-    description: string;
-    icon: any;
-    count: number;
-    onPress: () => void;
-  }) => (
-    <TouchableOpacity style={styles.friTypeCard} onPress={onPress}>
-      <View style={styles.friTypeHeader}>
-        <Ionicons name={icon} size={32} color="#2E7D32" />
-        <View style={styles.friTypeInfo}>
-          <Text style={styles.friTypeTitle}>{title}</Text>
-          <Text style={styles.friTypeDescription}>{description}</Text>
-        </View>
-        <Text style={styles.friTypeCount}>{count}</Text>
-      </View>
-      <View style={styles.friTypeAction}>
-        <Text style={styles.friTypeActionText}>Crear Nuevo</Text>
-        <Ionicons name="add-circle" size={20} color="#2E7D32" />
-      </View>
-    </TouchableOpacity>
-  );
-
-  const FRIListItem = ({ item }: { item: any }) => (
-    <View style={styles.friItem}>
-      <View style={styles.friItemHeader}>
-        <Text style={styles.friItemTitle}>{item.mineral || 'N/A'}</Text>
-        <Text style={styles.friItemDate}>{formatDate(item.createdAt)}</Text>
-      </View>
-      <View style={styles.friItemDetails}>
-        <Text style={styles.friItemText}>Título: {item.tituloMinero}</Text>
-        <Text style={styles.friItemText}>Municipio: {item.municipio}</Text>
-        {item.produccionBruta && (
-          <Text style={styles.friItemText}>
-            Producción: {item.produccionBruta} {item.unidadMedida}
-          </Text>
-        )}
-      </View>
-      <View style={styles.friItemActions}>
-        <TouchableOpacity style={styles.friItemButton}>
-          <Ionicons name="eye" size={16} color="#2E7D32" />
-          <Text style={styles.friItemButtonText}>Ver</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.friItemButton}>
-          <Ionicons name="create" size={16} color="#2E7D32" />
-          <Text style={styles.friItemButtonText}>Editar</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
-        style={styles.scrollContainer}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {/* Header con estadísticas */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Gestión de FRI</Text>
-          <Text style={styles.headerSubtitle}>Formatos de Reporte de Información</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>FRI - Reportes</Text>
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={handleCreateNewFRI}
+        >
+          <Ionicons name="add" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Contenido principal */}
+      <ScrollView style={styles.content}>
+        {/* Sección de acceso rápido */}
+        <View style={styles.quickAccessSection}>
+          <Text style={styles.sectionTitle}>Acceso Rápido</Text>
           
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.total}</Text>
-              <Text style={styles.statLabel}>Total</Text>
+          <TouchableOpacity 
+            style={styles.quickActionCard}
+            onPress={handleCreateNewFRI}
+          >
+            <View style={styles.quickActionIcon}>
+              <Ionicons name="document-text" size={32} color="#007AFF" />
             </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.enviados}</Text>
-              <Text style={styles.statLabel}>Enviados</Text>
+            <View style={styles.quickActionContent}>
+              <Text style={styles.quickActionTitle}>Nuevo FRI</Text>
+              <Text style={styles.quickActionSubtitle}>
+                Crear un nuevo reporte de información
+              </Text>
             </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.pendientes}</Text>
-              <Text style={styles.statLabel}>Pendientes</Text>
+            <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.quickActionCard}>
+            <View style={styles.quickActionIcon}>
+              <Ionicons name="folder-open" size={32} color="#FF9500" />
+            </View>
+            <View style={styles.quickActionContent}>
+              <Text style={styles.quickActionTitle}>Borradores</Text>
+              <Text style={styles.quickActionSubtitle}>
+                Continuar FRIs guardados
+              </Text>
+            </View>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>2</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.quickActionCard}>
+            <View style={styles.quickActionIcon}>
+              <Ionicons name="checkmark-circle" size={32} color="#34C759" />
+            </View>
+            <View style={styles.quickActionContent}>
+              <Text style={styles.quickActionTitle}>Enviados</Text>
+              <Text style={styles.quickActionSubtitle}>
+                Ver reportes completados
+              </Text>
+            </View>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>5</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Sección de estadísticas */}
+        <View style={styles.statsSection}>
+          <Text style={styles.sectionTitle}>Este Mes</Text>
+          
+          <View style={styles.statsGrid}>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>3</Text>
+              <Text style={styles.statLabel}>FRIs Enviados</Text>
+            </View>
+            
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>2</Text>
+              <Text style={styles.statLabel}>En Borrador</Text>
+            </View>
+            
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>85%</Text>
+              <Text style={styles.statLabel}>Cumplimiento</Text>
             </View>
           </View>
         </View>
 
-        {/* Tipos de FRI disponibles */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Crear Nuevo FRI</Text>
+        {/* Sección de FRIs recientes */}
+        <View style={styles.recentSection}>
+          <Text style={styles.sectionTitle}>Actividad Reciente</Text>
           
-          <FRITypeCard
-            title="FRI Producción"
-            description="Reporte de producción minera"
-            icon="analytics"
-            count={items.filter(item => item.tipoReporte === 'produccion').length}
-            onPress={() => openForm('produccion')}
-          />
-          
-          <FRITypeCard
-            title="FRI Inventarios"
-            description="Control de inventarios"
-            icon="cube"
-            count={items.filter(item => item.tipoReporte === 'inventarios').length}
-            onPress={() => openForm('inventarios')}
-          />
-          
-          <FRITypeCard
-            title="FRI Paradas"
-            description="Registro de paradas de producción"
-            icon="pause-circle"
-            count={items.filter(item => item.tipoReporte === 'paradas').length}
-            onPress={() => openForm('paradas')}
-          />
-        </View>
-
-        {/* Lista de FRI recientes */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>FRI Recientes</Text>
-          
-          {items.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="document-text-outline" size={64} color="#ccc" />
-              <Text style={styles.emptyStateText}>No hay FRI creados aún</Text>
-              <Text style={styles.emptyStateSubtext}>
-                Crea tu primer formato usando los botones de arriba
-              </Text>
+          <View style={styles.recentItem}>
+            <View style={styles.recentIcon}>
+              <Ionicons name="document" size={20} color="#007AFF" />
             </View>
-          ) : (
-            items.slice(0, 5).map((item, index) => (
-              <FRIListItem key={item.id || index} item={item} />
-            ))
-          )}
+            <View style={styles.recentContent}>
+              <Text style={styles.recentTitle}>FRI Mensual - Enero 2025</Text>
+              <Text style={styles.recentSubtitle}>Enviado hace 2 días</Text>
+            </View>
+            <View style={[styles.statusBadge, styles.statusSent]}>
+              <Text style={styles.statusText}>Enviado</Text>
+            </View>
+          </View>
+
+          <View style={styles.recentItem}>
+            <View style={styles.recentIcon}>
+              <Ionicons name="document-outline" size={20} color="#FF9500" />
+            </View>
+            <View style={styles.recentContent}>
+              <Text style={styles.recentTitle}>FRI Trimestral Q4 2024</Text>
+              <Text style={styles.recentSubtitle}>Borrador guardado</Text>
+            </View>
+            <View style={[styles.statusBadge, styles.statusDraft]}>
+              <Text style={styles.statusText}>Borrador</Text>
+            </View>
+          </View>
         </View>
       </ScrollView>
 
-      {/* Modal del formulario */}
+      {/* Modal para crear nuevo FRI */}
       <Modal
-        visible={showForm}
+        visible={showNewFRIModal}
         animationType="slide"
-        presentationStyle="pageSheet"
+        presentationStyle="fullScreen"
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowForm(false)}>
-              <Ionicons name="close" size={24} color="#666" />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Nuevo FRI</Text>
-            <View style={{ width: 24 }} />
-          </View>
-          
-          <FRIForm
-            tipo={selectedFRIType}
-            onSuccess={closeForm}
-          />
-        </View>
+        <FRITypeSelectionScreen navigation={mockNavigation} />
       </Modal>
     </SafeAreaView>
   );
@@ -219,192 +163,173 @@ export default function FRIScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  scrollContainer: {
-    flex: 1,
+    backgroundColor: '#F2F2F7',
   },
   header: {
-    backgroundColor: '#2E7D32',
-    padding: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 16,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
+    fontWeight: '700',
+    color: '#1D1D1F',
   },
-  headerSubtitle: {
-    fontSize: 16,
-    color: 'white',
-    opacity: 0.9,
-    marginTop: 5,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    marginTop: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 10,
-    padding: 15,
-  },
-  statItem: {
-    flex: 1,
+  addButton: {
+    backgroundColor: '#007AFF',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
+  content: {
+    flex: 1,
   },
-  statLabel: {
-    fontSize: 12,
-    color: 'white',
-    opacity: 0.8,
-    marginTop: 2,
-  },
-  section: {
-    margin: 20,
+  quickAccessSection: {
+    padding: 16,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
+    fontWeight: '600',
+    color: '#1D1D1F',
+    marginBottom: 16,
   },
-  friTypeCard: {
+  quickActionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  friTypeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  friTypeInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  friTypeTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
-  friTypeDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
-  },
-  friTypeCount: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2E7D32',
-  },
-  friTypeAction: {
-    flexDirection: 'row',
+  quickActionIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F0F8FF',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
+    marginRight: 16,
   },
-  friTypeActionText: {
+  quickActionContent: {
+    flex: 1,
+  },
+  quickActionTitle: {
     fontSize: 16,
-    color: '#2E7D32',
     fontWeight: '600',
+    color: '#1D1D1F',
+    marginBottom: 4,
+  },
+  quickActionSubtitle: {
+    fontSize: 14,
+    color: '#6D6D80',
+  },
+  badge: {
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     marginRight: 8,
   },
-  friItem: {
+  badgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  statsSection: {
+    padding: 16,
+    paddingTop: 0,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  statCard: {
+    flex: 1,
     backgroundColor: 'white',
-    borderRadius: 8,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#007AFF',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#6D6D80',
+    textAlign: 'center',
+  },
+  recentSection: {
+    padding: 16,
+    paddingTop: 0,
+  },
+  recentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 3,
     elevation: 2,
   },
-  friItemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  recentIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F0F8FF',
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'center',
+    marginRight: 12,
   },
-  friItemTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  friItemDate: {
-    fontSize: 12,
-    color: '#666',
-  },
-  friItemDetails: {
-    marginBottom: 12,
-  },
-  friItemText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
-  },
-  friItemActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  friItemButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#f8f9fa',
-  },
-  friItemButtonText: {
-    fontSize: 12,
-    color: '#2E7D32',
-    marginLeft: 4,
-    fontWeight: '500',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyStateText: {
-    fontSize: 18,
-    color: '#666',
-    marginTop: 16,
-    fontWeight: '500',
-  },
-  emptyStateSubtext: {
-    fontSize: 14,
-    color: '#999',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  modalContainer: {
+  recentContent: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+  recentTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1D1D1F',
+    marginBottom: 4,
   },
-  modalTitle: {
-    fontSize: 18,
+  recentSubtitle: {
+    fontSize: 14,
+    color: '#6D6D80',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusSent: {
+    backgroundColor: '#E8F5E8',
+  },
+  statusDraft: {
+    backgroundColor: '#FFF2E8',
+  },
+  statusText: {
+    fontSize: 12,
     fontWeight: '600',
-    color: '#333',
+    color: '#34C759',
   },
 });

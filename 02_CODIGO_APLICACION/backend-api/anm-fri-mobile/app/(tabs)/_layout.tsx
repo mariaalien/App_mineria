@@ -1,5 +1,5 @@
+// app/(tabs)/_layout.tsx - Layout de navegación por tabs
 import { Tabs } from 'expo-router';
-import React from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function TabLayout() {
@@ -7,35 +7,48 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#2E7D32',
-        headerStyle: {
-          backgroundColor: '#2E7D32',
+        tabBarInactiveTintColor: '#666',
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: 'white',
+          borderTopWidth: 1,
+          borderTopColor: '#eee',
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
         },
-        headerTintColor: '#fff',
-      }}>
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+        },
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="home" size={24} color={color} />
+          title: 'Inicio',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home" size={size} color={color} />
           ),
         }}
       />
+      
       <Tabs.Screen
         name="fri"
         options={{
           title: 'FRI',
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="document-text" size={24} color={color} />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="document-text" size={size} color={color} />
           ),
         }}
       />
+      
       <Tabs.Screen
-        name="profile"
+        name="explore"
         options={{
-          title: 'Perfil',
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="person" size={24} color={color} />
+          title: 'Explorar',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="search" size={size} color={color} />
           ),
         }}
       />

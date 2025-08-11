@@ -1,379 +1,461 @@
-// src/components/FRIForm.tsx - Versión FUNCIONAL corregida
-import React, { useState } from 'react';
+// src/components/FormularioFRI.tsx - Formulario principal integrado
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
   StyleSheet,
+  ScrollView,
+  TextInput,
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
-import PremiumButton from './PremiumButton';
-import EvidenceCapture from './EvidenceCapture';
-import LocationInfo from './LocationInfo';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
-interface FRIFormProps {
-  tipo: 'produccion' | 'inventarios' | 'paradas';
-  onSuccess?: () => void;
-  initialData?: any;
+// Importar nuestros componentes creados
+import PremiumButton from './PremiumButton';
+import EvidenceCapture from './EvidenceCapture';
+import LocationInfo from './LocationInfo';
+
+// Interfaces y tipos
+interface FormularioFRIData {
+  // Información básica
+  tituloMinero: string;
+  numeroRadicacion: string;
+  tipoFRI: 'mensual' | 'trimestral' | 'anual';
+  municipio: string;
+  departamento: string;
+  
+  // Datos de producción
+  mineralPrincipal: string;
+  cantidadExtraida: string;
+  unidadMedida: string;
+  valorProduccion: string;
+  
+  // Ubicación y evidencia
+  coordenadas?: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+    address?: string;
+  };
+  evidencias: any[];
+  
+  // Metadatos
+  fechaCreacion: string;
+  estado: 'borrador' | 'completado' | 'enviado';
+  observaciones: string;
 }
 
-export default function FRIForm({ tipo, onSuccess, initialData }: FRIFormProps) {
-  // Estados para los campos del formulario
-  const [formData, setFormData] = useState({
-    tituloMinero: initialData?.tituloMinero || '',
-    mineral: initialData?.mineral || '',
-    municipio: initialData?.municipio || '',
-    produccionBruta: initialData?.produccionBruta || '',
-    unidadMedida: initialData?.unidadMedida || 'TONELADAS',
-    fechaCorte: initialData?.fechaCorte || new Date().toISOString().split('T')[0],
+interface FormularioFRIProps {
+  onGuardar: (data: FormularioFRIData) => void;
+  onEnviar: (data: FormularioFRIData) => void;
+  datosIniciales?: Partial<FormularioFRIData>;
+  modoLectura?: boolean;
+}
+
+const TIPOS_MINERAL = [
+  'Oro', 'Plata', 'Platino', 'Carbón', 'Esmeraldas', 
+  'Arcilla', 'Arena', 'Grava', 'Caliza', 'Otro'
+];
+
+const UNIDADES_MEDIDA = [
+  'Gramos', 'Kilogramos', 'Toneladas', 
+  'Metros cúbicos', 'Quilates', 'Onzas'
+];
+
+export default function FormularioFRI({
+  onGuardar,
+  onEnviar,
+  datosIniciales = {},
+  modoLectura = false
+}: FormularioFRIProps) {
+  // Estados del formulario
+  const [formData, setFormData] = useState<FormularioFRIData>({
+    tituloMinero: '',
+    numeroRadicacion: '',
+    tipoFRI: 'mensual',
+    municipio: '',
+    departamento: '',
+    mineralPrincipal: '',
+    cantidadExtraida: '',
+    unidadMedida: 'Kilogramos',
+    valorProduccion: '',
+    evidencias: [],
+    fechaCreacion: new Date().toISOString(),
+    estado: 'borrador',
+    observaciones: '',
+    ...datosIniciales
   });
 
-  const [errors, setErrors] = useState<any>({});
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // Estados para funcionalidades avanzadas
-  const [evidencePhotos, setEvidencePhotos] = useState<any[]>([]);
-  const [locationData, setLocationData] = useState<any>(null);
+  const [errores, setErrores] = useState<Record<string, string>>({});
+  const [guardadoAutomatico, setGuardadoAutomatico] = useState(true);
+  const [cargando, setCargando] = useState(false);
 
-  // Función para actualizar campos
-  const updateField = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    // Limpiar error del campo cuando el usuario empieza a escribir
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: null }));
-    }
-  };
+  // Auto-guardado cada 30 segundos
+  useEffect(() => {
+    if (!guardadoAutomatico || modoLectura) return;
 
-  // Función de validación
-  const validateForm = () => {
-    const newErrors: any = {};
+    const intervalo = setInterval(() => {
+      guardarBorrador();
+    }, 30000);
+
+    return () => clearInterval(intervalo);
+  }, [formData, guardadoAutomatico]);
+
+  // Validaciones del formulario
+  const validarFormulario = (): boolean => {
+    const nuevosErrores: Record<string, string> = {};
 
     if (!formData.tituloMinero.trim()) {
-      newErrors.tituloMinero = 'Título minero es requerido';
+      nuevosErrores.tituloMinero = 'El título minero es obligatorio';
     }
-    if (!formData.mineral.trim()) {
-      newErrors.mineral = 'Mineral es requerido';
+
+    if (!formData.numeroRadicacion.trim()) {
+      nuevosErrores.numeroRadicacion = 'El número de radicación es obligatorio';
     }
+
     if (!formData.municipio.trim()) {
-      newErrors.municipio = 'Municipio es requerido';
-    }
-    if (!formData.produccionBruta || parseFloat(formData.produccionBruta) <= 0) {
-      newErrors.produccionBruta = 'Producción bruta debe ser mayor a 0';
-    }
-    if (!formData.fechaCorte) {
-      newErrors.fechaCorte = 'Fecha de corte es requerida';
+      nuevosErrores.municipio = 'El municipio es obligatorio';
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    if (!formData.departamento.trim()) {
+      nuevosErrores.departamento = 'El departamento es obligatorio';
+    }
+
+    if (!formData.mineralPrincipal) {
+      nuevosErrores.mineralPrincipal = 'Debe seleccionar un mineral';
+    }
+
+    if (!formData.cantidadExtraida.trim()) {
+      nuevosErrores.cantidadExtraida = 'La cantidad extraída es obligatoria';
+    } else if (isNaN(Number(formData.cantidadExtraida))) {
+      nuevosErrores.cantidadExtraida = 'Debe ser un número válido';
+    }
+
+    if (!formData.valorProduccion.trim()) {
+      nuevosErrores.valorProduccion = 'El valor de producción es obligatorio';
+    } else if (isNaN(Number(formData.valorProduccion))) {
+      nuevosErrores.valorProduccion = 'Debe ser un número válido';
+    }
+
+    setErrores(nuevosErrores);
+    return Object.keys(nuevosErrores).length === 0;
   };
 
-  // Función para limpiar formulario
-  const resetForm = () => {
-    setFormData({
-      tituloMinero: '',
-      mineral: '',
-      municipio: '',
-      produccionBruta: '',
-      unidadMedida: 'TONELADAS',
-      fechaCorte: new Date().toISOString().split('T')[0],
+  // Actualizar campo del formulario
+  const actualizarCampo = (campo: keyof FormularioFRIData, valor: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [campo]: valor
+    }));
+
+    // Limpiar error del campo si existe
+    if (errores[campo]) {
+      setErrores(prev => {
+        const nuevosErrores = { ...prev };
+        delete nuevosErrores[campo];
+        return nuevosErrores;
+      });
+    }
+  };
+
+  // Manejar actualización de ubicación
+  const handleLocationUpdate = (locationData: any) => {
+    actualizarCampo('coordenadas', {
+      latitude: locationData.latitude,
+      longitude: locationData.longitude,
+      accuracy: locationData.accuracy,
+      address: locationData.address
     });
-    setErrors({});
+    
+    console.log('📍 Ubicación actualizada en formulario:', locationData);
   };
 
-  // Función de envío (SIMULADA)
-  const onSubmit = async () => {
-    if (!validateForm()) {
-      Alert.alert('Error', 'Por favor complete todos los campos requeridos');
+  // Manejar evidencias capturadas
+  const handleEvidenceAdd = (evidencias: any[]) => {
+    actualizarCampo('evidencias', evidencias);
+    console.log('📸 Evidencias actualizadas:', evidencias.length);
+  };
+
+  // Guardar como borrador
+  const guardarBorrador = async () => {
+    try {
+      const datosParaGuardar = {
+        ...formData,
+        estado: 'borrador' as const,
+        fechaActualizacion: new Date().toISOString()
+      };
+      
+      await onGuardar(datosParaGuardar);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (error) {
+      console.error('Error en auto-guardado:', error);
+    }
+  };
+
+  // Enviar formulario
+  const enviarFormulario = async () => {
+    if (!validarFormulario()) {
+      Alert.alert(
+        'Formulario Incompleto',
+        'Por favor complete todos los campos obligatorios'
+      );
       return;
     }
 
-    setIsLoading(true);
-
-    try {
-      console.log('📝 Simulando envío de FRI:', {
-        tipo: tipo,
-        tituloMinero: formData.tituloMinero,
-        mineral: formData.mineral,
-        municipio: formData.municipio,
-        produccionBruta: parseFloat(formData.produccionBruta),
-        unidadMedida: formData.unidadMedida,
-        fechaCorte: formData.fechaCorte,
-        timestamp: new Date().toISOString()
-      });
-
-      // Simular delay de red (1.5 segundos)
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Simular éxito
+    if (!formData.coordenadas) {
       Alert.alert(
-        '🎉 Éxito',
-        `FRI ${tipo.toUpperCase()} creado correctamente\n\n` +
-        `Título: ${formData.tituloMinero}\n` +
-        `Mineral: ${formData.mineral}\n` +
-        `Producción: ${formData.produccionBruta} ${formData.unidadMedida}`,
+        'Ubicación Requerida',
+        'Se necesita la ubicación GPS para enviar el formulario',
         [
-          {
-            text: 'OK',
-            onPress: () => {
-              resetForm();
-              onSuccess?.();
-            },
-          },
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Enviar sin GPS', onPress: confirmarEnvio }
         ]
       );
-
-    } catch (error: any) {
-      Alert.alert('Error', 'Error simulado en el procesamiento');
-    } finally {
-      setIsLoading(false);
+      return;
     }
+
+    confirmarEnvio();
   };
 
-  // Función para renderizar campos de input PREMIUM
-  const renderAnimatedInput = (
-    field: string,
+  const confirmarEnvio = async () => {
+    Alert.alert(
+      'Confirmar Envío',
+      '¿Está seguro de que desea enviar este formulario FRI? No podrá modificarlo después.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Enviar',
+          onPress: async () => {
+            setCargando(true);
+            try {
+              const datosParaEnviar = {
+                ...formData,
+                estado: 'enviado' as const,
+                fechaEnvio: new Date().toISOString()
+              };
+              
+              await onEnviar(datosParaEnviar);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              
+              Alert.alert(
+                '✅ Formulario Enviado',
+                'El formulario FRI ha sido enviado exitosamente'
+              );
+            } catch (error) {
+              Alert.alert('Error', 'No se pudo enviar el formulario');
+            } finally {
+              setCargando(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // Renderizar campo de texto con validación
+  const renderInput = (
+    key: keyof FormularioFRIData,
     label: string,
     placeholder: string,
-    keyboardType: any = 'default',
-    icon?: keyof typeof Ionicons.glyphMap
+    options: {
+      multiline?: boolean;
+      keyboardType?: 'default' | 'numeric' | 'email-address';
+      required?: boolean;
+    } = {}
   ) => (
-    <AnimatedInput
-      label={label}
-      value={formData[field]}
-      onChangeText={(value) => updateField(field, value)}
-      placeholder={placeholder}
-      keyboardType={keyboardType}
-      error={errors[field]}
-      success={formData[field] && !errors[field]}
-      required={true}
-      icon={icon}
-    />
+    <View style={styles.inputContainer}>
+      <Text style={styles.inputLabel}>
+        {label}
+        {options.required && <Text style={styles.required}> *</Text>}
+      </Text>
+      <TextInput
+        style={[
+          styles.input,
+          options.multiline && styles.inputMultiline,
+          errores[key] && styles.inputError,
+          modoLectura && styles.inputReadonly
+        ]}
+        value={String(formData[key] || '')}
+        onChangeText={(valor) => actualizarCampo(key, valor)}
+        placeholder={placeholder}
+        multiline={options.multiline}
+        keyboardType={options.keyboardType || 'default'}
+        editable={!modoLectura}
+      />
+      {errores[key] && (
+        <Text style={styles.errorText}>{errores[key]}</Text>
+      )}
+    </View>
   );
-
-  const mineralOptions = [
-    'ORO', 'PLATA', 'CARBON', 'COBRE', 'HIERRO', 
-    'CALIZA', 'ARENA', 'GRAVA', 'ARCILLA', 'OTRO'
-  ];
-
-  const unidadMedidaOptions = [
-    'TONELADAS', 'KILOGRAMOS', 'GRAMOS', 'METROS_CUBICOS', 'ONZAS'
-  ];
 
   return (
     <KeyboardAvoidingView 
-      style={styles.container} 
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Header del formulario */}
         <View style={styles.header}>
-          <Text style={styles.title}>Nuevo FRI {tipo.toUpperCase()}</Text>
-          <Text style={styles.subtitle}>Complete todos los campos requeridos</Text>
-        </View>
-
-        <View style={styles.form}>
-          {/* Inputs mejorados con haptics */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Título Minero *</Text>
-            <View style={styles.inputWithIcon}>
-              <Ionicons name="document-text" size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, styles.inputWithIconPadding, errors.tituloMinero && styles.inputError]}
-                placeholder="Ej: TM-001"
-                value={formData.tituloMinero}
-                onChangeText={(value) => updateField('tituloMinero', value)}
-                onFocus={() => {
-                  try {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  } catch (e) {}
-                }}
-                placeholderTextColor="#999"
-              />
-            </View>
-            {errors.tituloMinero && (
-              <Text style={styles.errorText}>{errors.tituloMinero}</Text>
-            )}
+          <View style={styles.headerInfo}>
+            <Text style={styles.title}>Formulario FRI</Text>
+            <Text style={styles.subtitle}>
+              {formData.tipoFRI.charAt(0).toUpperCase() + formData.tipoFRI.slice(1)}
+            </Text>
           </View>
           
-          {/* Selector de Mineral MEJORADO */}
+          <View style={styles.statusContainer}>
+            <View style={[
+              styles.statusBadge,
+              formData.estado === 'enviado' && styles.statusEnviado,
+              formData.estado === 'completado' && styles.statusCompletado
+            ]}>
+              <Text style={styles.statusText}>
+                {formData.estado.toUpperCase()}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Auto-guardado toggle */}
+        {!modoLectura && (
+          <View style={styles.autoSaveContainer}>
+            <Text style={styles.autoSaveText}>Guardado automático</Text>
+            <Switch
+              value={guardadoAutomatico}
+              onValueChange={setGuardadoAutomatico}
+              trackColor={{ false: '#ccc', true: '#2E7D32' }}
+            />
+          </View>
+        )}
+
+        {/* Información básica */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>📋 Información Básica</Text>
+          
+          {renderInput('tituloMinero', 'Título Minero', 'Ej: Mina El Dorado', { required: true })}
+          {renderInput('numeroRadicacion', 'Número de Radicación', 'Ej: 12345-2024', { required: true })}
+          {renderInput('municipio', 'Municipio', 'Municipio de operación', { required: true })}
+          {renderInput('departamento', 'Departamento', 'Departamento', { required: true })}
+        </View>
+
+        {/* Datos de producción */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>⛏️ Datos de Producción</Text>
+          
+          {/* Selector de mineral */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Mineral *</Text>
-            <View style={styles.pickerContainer}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {mineralOptions.map((mineral) => (
-                  <TouchableOpacity
+            <Text style={styles.inputLabel}>
+              Mineral Principal <Text style={styles.required}>*</Text>
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.chipContainer}>
+                {TIPOS_MINERAL.map((mineral) => (
+                  <PremiumButton
                     key={mineral}
-                    style={[
-                      styles.pickerItem,
-                      formData.mineral === mineral && styles.pickerItemSelected,
-                    ]}
-                    onPress={() => {
-                      try {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      } catch (e) {}
-                      updateField('mineral', mineral);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.pickerItemText,
-                        formData.mineral === mineral && styles.pickerItemTextSelected,
-                      ]}
-                    >
-                      {mineral}
-                    </Text>
-                  </TouchableOpacity>
+                    title={mineral}
+                    onPress={() => actualizarCampo('mineralPrincipal', mineral)}
+                    variant={formData.mineralPrincipal === mineral ? 'primary' : 'secondary'}
+                    size="small"
+                    disabled={modoLectura}
+                  />
                 ))}
-              </ScrollView>
-            </View>
-            {errors.mineral && (
-              <Text style={styles.errorText}>{errors.mineral}</Text>
-            )}
+              </View>
+            </ScrollView>
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Municipio *</Text>
-            <View style={styles.inputWithIcon}>
-              <Ionicons name="location" size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, styles.inputWithIconPadding, errors.municipio && styles.inputError]}
-                placeholder="Ej: Bogotá"
-                value={formData.municipio}
-                onChangeText={(value) => updateField('municipio', value)}
-                onFocus={() => {
-                  try {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  } catch (e) {}
-                }}
-                placeholderTextColor="#999"
-              />
-            </View>
-            {errors.municipio && (
-              <Text style={styles.errorText}>{errors.municipio}</Text>
-            )}
-          </View>
+          {renderInput('cantidadExtraida', 'Cantidad Extraída', '0.00', { 
+            required: true, 
+            keyboardType: 'numeric' 
+          })}
 
+          {/* Selector de unidad */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Producción Bruta *</Text>
-            <View style={styles.inputWithIcon}>
-              <Ionicons name="analytics" size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, styles.inputWithIconPadding, errors.produccionBruta && styles.inputError]}
-                placeholder="0.00"
-                value={formData.produccionBruta}
-                onChangeText={(value) => updateField('produccionBruta', value)}
-                keyboardType="numeric"
-                onFocus={() => {
-                  try {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  } catch (e) {}
-                }}
-                placeholderTextColor="#999"
-              />
-            </View>
-            {errors.produccionBruta && (
-              <Text style={styles.errorText}>{errors.produccionBruta}</Text>
-            )}
-          </View>
-          
-          {/* Selector de Unidad de Medida MEJORADO */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Unidad de Medida *</Text>
-            <View style={styles.pickerContainer}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {unidadMedidaOptions.map((unidad) => (
-                  <TouchableOpacity
+            <Text style={styles.inputLabel}>Unidad de Medida</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.chipContainer}>
+                {UNIDADES_MEDIDA.map((unidad) => (
+                  <PremiumButton
                     key={unidad}
-                    style={[
-                      styles.pickerItem,
-                      formData.unidadMedida === unidad && styles.pickerItemSelected,
-                    ]}
-                    onPress={() => {
-                      try {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      } catch (e) {}
-                      updateField('unidadMedida', unidad);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.pickerItemText,
-                        formData.unidadMedida === unidad && styles.pickerItemTextSelected,
-                      ]}
-                    >
-                      {unidad.replace('_', ' ')}
-                    </Text>
-                  </TouchableOpacity>
+                    title={unidad}
+                    onPress={() => actualizarCampo('unidadMedida', unidad)}
+                    variant={formData.unidadMedida === unidad ? 'primary' : 'secondary'}
+                    size="small"
+                    disabled={modoLectura}
+                  />
                 ))}
-              </ScrollView>
-            </View>
+              </View>
+            </ScrollView>
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Fecha de Corte *</Text>
-            <View style={styles.inputWithIcon}>
-              <Ionicons name="calendar" size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, styles.inputWithIconPadding, errors.fechaCorte && styles.inputError]}
-                placeholder="YYYY-MM-DD"
-                value={formData.fechaCorte}
-                onChangeText={(value) => updateField('fechaCorte', value)}
-                onFocus={() => {
-                  try {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  } catch (e) {}
-                }}
-                placeholderTextColor="#999"
-              />
-            </View>
-            {errors.fechaCorte && (
-              <Text style={styles.errorText}>{errors.fechaCorte}</Text>
-            )}
-          </View>
+          {renderInput('valorProduccion', 'Valor de Producción (COP)', '0.00', { 
+            required: true, 
+            keyboardType: 'numeric' 
+          })}
         </View>
 
-        {/* Nuevas funcionalidades móviles */}
-        <LocationInfo 
-          onLocationUpdate={setLocationData}
-          autoUpdate={true}
-        />
-
-        <EvidenceCapture 
-          onEvidenceAdd={setEvidencePhotos}
-          maxPhotos={5}
-          evidenceTypes={[
-            'Sitio de Extracción',
-            'Maquinaria Utilizada', 
-            'Producto Minero',
-            'Documentos',
-            'Infraestructura'
-          ]}
-        />
-
-        <View style={styles.buttonContainer}>
-          <PremiumButton
-            title="Limpiar"
-            onPress={resetForm}
-            variant="secondary"
-            icon={<Ionicons name="refresh" size={16} color="#2E7D32" />}
-            size="medium"
+        {/* Información GPS */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>📍 Ubicación GPS</Text>
+          <LocationInfo
+            onLocationUpdate={handleLocationUpdate}
+            autoUpdate={!modoLectura}
           />
-          
-          <PremiumButton
-            title={isLoading ? 'Guardando...' : 'Guardar FRI'}
-            onPress={onSubmit}
-            variant="primary"
-            loading={isLoading}
-            disabled={isLoading}
-            icon={!isLoading ? <Ionicons name="save" size={16} color="white" /> : undefined}
-            size="medium"
+        </View>
+
+        {/* Evidencia fotográfica */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>📸 Evidencia Fotográfica</Text>
+          <EvidenceCapture
+            onEvidenceAdd={handleEvidenceAdd}
+            maxPhotos={5}
+            evidenceTypes={[
+              'Sitio de Extracción',
+              'Maquinaria Utilizada',
+              'Producto Extraído',
+              'Documentos Soporte',
+              'Otros'
+            ]}
           />
+        </View>
+
+        {/* Observaciones */}
+        <View style={styles.section}>
+          {renderInput('observaciones', 'Observaciones', 'Comentarios adicionales...', { 
+            multiline: true 
+          })}
+        </View>
+
+        {/* Botones de acción */}
+        {!modoLectura && (
+          <View style={styles.actionsContainer}>
+            <PremiumButton
+              title="💾 Guardar Borrador"
+              onPress={guardarBorrador}
+              variant="secondary"
+              size="large"
+              loading={cargando}
+              icon={<Ionicons name="save-outline" size={18} color="#2E7D32" />}
+            />
+            
+            <PremiumButton
+              title="📤 Enviar Formulario"
+              onPress={enviarFormulario}
+              variant="primary"
+              size="large"
+              loading={cargando}
+              icon={<Ionicons name="send" size={18} color="white" />}
+            />
+          </View>
+        )}
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            📋 Formulario FRI - {formData.evidencias.length} evidencias • {formData.coordenadas ? '📍 GPS Activo' : '📍 Sin GPS'}
+          </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -385,36 +467,92 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  scrollContainer: {
+  scrollView: {
     flex: 1,
   },
   header: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: 'white',
     padding: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  headerInfo: {
+    flex: 1,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: 'white',
+    color: '#333',
   },
   subtitle: {
     fontSize: 16,
-    color: 'white',
-    opacity: 0.9,
-    marginTop: 5,
+    color: '#666',
+    marginTop: 4,
   },
-  form: {
+  statusContainer: {
+    alignItems: 'flex-end',
+  },
+  statusBadge: {
+    backgroundColor: '#f39c12',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  statusEnviado: {
+    backgroundColor: '#27ae60',
+  },
+  statusCompletado: {
+    backgroundColor: '#3498db',
+  },
+  statusText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  autoSaveContainer: {
+    backgroundColor: 'white',
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  autoSaveText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  section: {
+    backgroundColor: 'white',
+    margin: 16,
     padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 16,
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  label: {
+  inputLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
     marginBottom: 8,
+  },
+  required: {
+    color: '#e74c3c',
   },
   input: {
     borderWidth: 1,
@@ -422,99 +560,40 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: 'white',
+    backgroundColor: '#fafafa',
+  },
+  inputMultiline: {
+    height: 80,
+    textAlignVertical: 'top',
   },
   inputError: {
     borderColor: '#e74c3c',
   },
+  inputReadonly: {
+    backgroundColor: '#f0f0f0',
+    color: '#666',
+  },
   errorText: {
     color: '#e74c3c',
     fontSize: 14,
-    marginTop: 5,
+    marginTop: 4,
   },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    backgroundColor: 'white',
-    padding: 8,
-  },
-  pickerItem: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginRight: 8,
-    borderRadius: 6,
-    backgroundColor: '#f8f9fa',
-  },
-  pickerItemSelected: {
-    backgroundColor: '#2E7D32',
-  },
-  pickerItemText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  pickerItemTextSelected: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  buttonContainer: {
+  chipContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingBottom: 30,
+    gap: 8,
+    paddingVertical: 4,
+  },
+  actionsContainer: {
+    padding: 20,
     gap: 12,
   },
-  button: {
-    flex: 1,
-    paddingVertical: 15,
-    borderRadius: 8,
+  footer: {
+    padding: 20,
     alignItems: 'center',
   },
-  cancelButton: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  submitButton: {
-    backgroundColor: '#2E7D32',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  cancelButtonText: {
-    color: '#666',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  submitButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  // Nuevos estilos para inputs con iconos
-  inputWithIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    backgroundColor: 'white',
-    paddingHorizontal: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  inputIcon: {
-    marginRight: 8,
-  },
-  inputWithIconPadding: {
-    flex: 1,
-    padding: 12,
-    fontSize: 16,
-    borderWidth: 0, // Remover border del input individual
+  footerText: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
   },
 });
