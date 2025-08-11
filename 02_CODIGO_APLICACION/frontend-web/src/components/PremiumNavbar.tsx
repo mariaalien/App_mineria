@@ -13,7 +13,9 @@ import {
   Edit3,
   Bookmark,
   User,
-  TrendingUp
+  TrendingUp,
+  Shield,
+  UserCheck 
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -114,6 +116,27 @@ const PremiumNavbar: React.FC<NavbarProps> = ({
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/login');
+
+  const navigationItems = [
+  // ... items existentes ...
+  {
+    id: 'verification',
+    name: 'Verificación',
+    icon: Shield, // Importar: import { Shield } from 'lucide-react';
+    route: '/verification',
+    description: 'Verificación de usuarios'
+  },
+  // Si es admin, mostrar también:
+  {
+    id: 'admin-verification',
+    name: 'Admin Verificación',
+    icon: UserCheck,
+    route: '/admin/verification',
+    description: 'Panel administrativo de verificación'
+  }
+];
+
+
   };
 
   return (

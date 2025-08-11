@@ -13,6 +13,57 @@ datasource db {
 // =============================================================================
 // MODELOS DE EMPRESA Y AUTENTICACIÓN
 // =============================================================================
+// Tabla para códigos de verificación temporales
+model CodigoVerificacion {
+  id        String   @id @default(uuid())
+  usuarioId String   @map("usuario_id")
+  codigo    String
+  tipo      String   // 'IDENTITY_VERIFICATION', 'PASSWORD_RESET', etc.
+  expiraEn  DateTime @map("expira_en")
+  usado     Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relaciones
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId, codigo])
+  @@index([expiraEn])
+  @@map("codigos_verificacion")
+}
+
+// Tabla para historial de verificaciones de usuarios
+model VerificacionUsuario {
+  id                    String   @id @default(uuid())
+  usuarioId             String   @map("usuario_id")
+  puntuacionConfianza   Int      @map("puntuacion_confianza") // 0-100
+  nivelVerificacion     String   @map("nivel_verificacion")   // 'BAJO', 'MEDIO', 'ALTO'
+  detallesVerificacion  String   @map("detalles_verificacion") // JSON
+  metadatos             String?  @map("metadatos")             // JSON con IP, User-Agent, etc.
+  fechaVerificacion     DateTime @map("fecha_verificacion")
+
+  // Relaciones
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@index([fechaVerificacion])
+  @@map("verificaciones_usuario")
+}
+
+// ACTUALIZACIONES AL MODELO USUARIO EXISTENTE
+// Agrega estos campos al modelo Usuario que ya tienes:
+
+model Usuario {
+  // ... campos existentes ...
+  
+  // Campos de verificación (AGREGAR ESTOS)
+  verificadoPor      String?   @map("verificado_por")      // ID del admin que verificó
+  fechaVerificacion  DateTime? @map("fecha_verificacion")  // Cuándo fue verificado
+  notasVerificacion  String?   @map("notas_verificacion")  // Notas del admin
+  
+  // Relaciones adicionales (AGREGAR ESTAS)
+  codigosVerificacion    CodigoVerificacion[]
+  verificacionesUsuario  VerificacionUsuario[]
+} 
 
 model Empresa {
   id        String   @id @default(uuid())

@@ -14,6 +14,8 @@ import SistemaTagsVistas from './pages/SistemaTagsVistas';
 import AdminUserManagement from './components/admin/AdminUserManagement';
 import SystemMonitor from './components/admin/SystemMonitor';
 import SystemConfiguration from './components/admin/SystemConfiguration';
+import UserVerificationPanel from './components/verification/UserVerificationPanel';
+import AdminVerificationDashboard from './components/admin/AdminVerificationDashboard';
 
 
 // Importar componentes de accesibilidad y PWA
@@ -175,6 +177,25 @@ const App: React.FC = () => {
               } 
             />
 
+             </Routes>
+          <Route 
+            path="/verification" 
+            element={
+              <ProtectedRoute>
+                <UserVerificationPanel />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/admin/verification" 
+            element={
+              <ProtectedRoute>
+                <AdminVerificationDashboard />
+              </ProtectedRoute>
+            } 
+          />  
+
             {/* Ruta 404 */}
             <Route 
               path="*" 
@@ -256,7 +277,7 @@ const App: React.FC = () => {
                 </ProtectedRoute>
               } 
             />
-          </Routes>
+         
         </main>
 
         {/* Botón flotante de accesibilidad */}
