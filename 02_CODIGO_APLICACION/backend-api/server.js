@@ -51,8 +51,10 @@ app.use(cors({
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:8081', 
+      'http://localhost:8082',  // ← AGREGAR ESTA LÍNEA
       'http://127.0.0.1:3000',
       'http://127.0.0.1:8081',
+      'http://127.0.0.1:8082',  // ← AGREGAR ESTA LÍNEA
       'https://anm-fri.vercel.app'
     ];
     
