@@ -1,14 +1,17 @@
 // ==========================================
 // 02_CODIGO_APLICACION/anm-fri-mobile/src/navigation/AppNavigator.js
-// Navegador principal de la aplicación móvil
+// Navegador Principal Completo con Verificación
 // ==========================================
 
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createDrawerNavigator } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, View, Text } from 'react-native';
+
+// Importar pantallas de autenticación
+import LoginScreen from '../screens/auth/LoginScreen';
+import LoadingScreen from '../screens/auth/LoadingScreen';
 
 // Importar pantallas principales
 import DashboardScreen from '../screens/dashboard/DashboardScreen';
@@ -18,16 +21,11 @@ import ProfileScreen from '../screens/profile/ProfileScreen';
 import ReportsScreen from '../screens/reports/ReportsScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
 
-// Importar pantallas de autenticación
-import LoginScreen from '../screens/auth/LoginScreen';
-import LoadingScreen from '../screens/auth/LoadingScreen';
-
 // Importar hook de autenticación
 import { useAuth } from '../contexts/AuthContext';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
-const Drawer = createDrawerNavigator();
 
 // =============================================================================
 // CONFIGURACIÓN DE COLORES Y ESTILOS
@@ -48,164 +46,69 @@ const Colors = {
   inactive: '#9CA3AF'
 };
 
-const TabBarOptions = {
-  activeTintColor: Colors.primary,
-  inactiveTintColor: Colors.inactive,
-  style: {
-    backgroundColor: Colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 8,
-    paddingTop: 8,
-    height: Platform.OS === 'ios' ? 85 : 65,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  labelStyle: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  iconStyle: {
-    marginBottom: 2,
-  },
-};
+// =============================================================================
+// PANTALLAS PLACEHOLDER PARA DESARROLLO
+// =============================================================================
+
+const PlaceholderScreen = ({ title, icon }) => (
+  <View style={styles.placeholderContainer}>
+    <Ionicons name={icon} size={64} color={Colors.primary} style={styles.placeholderIcon} />
+    <Text style={styles.placeholderTitle}>{title}</Text>
+    <Text style={styles.placeholderSubtitle}>Esta pantalla está en desarrollo</Text>
+  </View>
+);
+
+// Pantallas temporales mientras las desarrollas
+const DashboardScreenPlaceholder = () => (
+  <PlaceholderScreen title="Dashboard" icon="analytics" />
+);
+
+const FormularioFRIScreenPlaceholder = () => (
+  <PlaceholderScreen title="Formularios FRI" icon="document-text" />
+);
+
+const ReportsScreenPlaceholder = () => (
+  <PlaceholderScreen title="Reportes" icon="bar-chart" />
+);
+
+const ProfileScreenPlaceholder = () => (
+  <PlaceholderScreen title="Mi Perfil" icon="person" />
+);
+
+const SettingsScreenPlaceholder = () => (
+  <PlaceholderScreen title="Configuración" icon="settings" />
+);
+
+// =============================================================================
+// CONFIGURACIÓN DE HEADERS
+// =============================================================================
 
 const HeaderOptions = {
   headerStyle: {
     backgroundColor: Colors.primary,
-    elevation: 4,
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    elevation: 0,
+    shadowOpacity: 0,
+    borderBottomWidth: 0,
   },
   headerTintColor: '#FFFFFF',
   headerTitleStyle: {
-    fontWeight: '700',
+    fontWeight: 'bold',
     fontSize: 18,
-    letterSpacing: 0.5,
   },
-  headerBackTitleVisible: false,
+  headerTitleAlign: 'center',
 };
 
 // =============================================================================
-// NAVEGADOR DE PESTAÑAS PRINCIPAL
-// =============================================================================
-
-const MainTabNavigator = () => {
-  const { user } = useAuth();
-
-  return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-          let iconSize = size;
-
-          switch (route.name) {
-            case 'Dashboard':
-              iconName = focused ? 'home' : 'home-outline';
-              break;
-            case 'Formularios':
-              iconName = focused ? 'document-text' : 'document-text-outline';
-              break;
-            case 'Verificación':
-              iconName = focused ? 'shield-checkmark' : 'shield-checkmark-outline';
-              iconSize = focused ? size + 2 : size; // Hacer el icono un poco más grande cuando está activo
-              break;
-            case 'Reportes':
-              iconName = focused ? 'bar-chart' : 'bar-chart-outline';
-              break;
-            case 'Perfil':
-              iconName = focused ? 'person' : 'person-outline';
-              break;
-            default:
-              iconName = 'ellipse-outline';
-          }
-
-          return (
-            <Ionicons 
-              name={iconName} 
-              size={iconSize} 
-              color={color}
-              style={focused ? styles.activeIcon : {}}
-            />
-          );
-        },
-        ...TabBarOptions,
-        headerShown: false, // Los Stack navigators manejarán sus propios headers
-      })}
-    >
-      <Tab.Screen 
-        name="Dashboard" 
-        component={DashboardStackNavigator}
-        options={{
-          title: 'Inicio',
-          tabBarBadge: user?.hasNotifications ? '!' : undefined,
-        }}
-      />
-      
-      <Tab.Screen 
-        name="Formularios" 
-        component={FormulariosStackNavigator}
-        options={{
-          title: 'FRI',
-        }}
-      />
-      
-      <Tab.Screen 
-        name="Verificación" 
-        component={VerificationStackNavigator}
-        options={{
-          title: 'Verificar',
-          tabBarBadge: !user?.verificado ? '!' : undefined,
-          tabBarBadgeStyle: {
-            backgroundColor: Colors.warning,
-            color: '#FFFFFF',
-            fontSize: 10,
-            minWidth: 16,
-            height: 16,
-          },
-        }}
-      />
-      
-      {/* Mostrar Reportes solo si el usuario tiene permisos */}
-      {(user?.rol === 'ADMIN' || user?.rol === 'SUPERVISOR') && (
-        <Tab.Screen 
-          name="Reportes" 
-          component={ReportsStackNavigator}
-          options={{
-            title: 'Reportes',
-          }}
-        />
-      )}
-      
-      <Tab.Screen 
-        name="Perfil" 
-        component={ProfileStackNavigator}
-        options={{
-          title: 'Perfil',
-        }}
-      />
-    </Tab.Navigator>
-  );
-};
-
-// =============================================================================
-// NAVEGADORES DE STACK PARA CADA SECCIÓN
+// NAVEGADORES STACK PARA CADA TAB
 // =============================================================================
 
 const DashboardStackNavigator = () => (
   <Stack.Navigator screenOptions={HeaderOptions}>
     <Stack.Screen 
       name="DashboardMain" 
-      component={DashboardScreen}
+      component={DashboardScreenPlaceholder}
       options={{
-        title: 'Sistema ANM FRI',
+        title: 'Dashboard ANM FRI',
         headerRight: () => (
           <Ionicons 
             name="notifications-outline" 
@@ -216,6 +119,14 @@ const DashboardStackNavigator = () => (
         ),
       }}
     />
+    <Stack.Screen 
+      name="Verification" 
+      component={UserVerificationScreen}
+      options={{
+        title: 'Verificación',
+        headerShown: false, // La pantalla maneja su propio header
+      }}
+    />
   </Stack.Navigator>
 );
 
@@ -223,7 +134,7 @@ const FormulariosStackNavigator = () => (
   <Stack.Navigator screenOptions={HeaderOptions}>
     <Stack.Screen 
       name="FormulariosMain" 
-      component={FormularioFRIScreen}
+      component={FormularioFRIScreenPlaceholder}
       options={{
         title: 'Formularios FRI',
         headerRight: () => (
@@ -239,39 +150,11 @@ const FormulariosStackNavigator = () => (
   </Stack.Navigator>
 );
 
-const VerificationStackNavigator = () => {
-  const { user } = useAuth();
-  
-  return (
-    <Stack.Navigator screenOptions={HeaderOptions}>
-      <Stack.Screen 
-        name="VerificationMain" 
-        component={UserVerificationScreen}
-        options={{
-          title: 'Verificación de Usuario',
-          headerStyle: {
-            ...HeaderOptions.headerStyle,
-            backgroundColor: user?.verificado ? Colors.success : Colors.warning,
-          },
-          headerRight: () => (
-            <Ionicons 
-              name={user?.verificado ? "checkmark-circle" : "warning"} 
-              size={24} 
-              color="#FFFFFF" 
-              style={{ marginRight: 16 }}
-            />
-          ),
-        }}
-      />
-    </Stack.Navigator>
-  );
-};
-
 const ReportsStackNavigator = () => (
   <Stack.Navigator screenOptions={HeaderOptions}>
     <Stack.Screen 
       name="ReportsMain" 
-      component={ReportsScreen}
+      component={ReportsScreenPlaceholder}
       options={{
         title: 'Reportes y Analytics',
         headerRight: () => (
@@ -291,7 +174,7 @@ const ProfileStackNavigator = () => (
   <Stack.Navigator screenOptions={HeaderOptions}>
     <Stack.Screen 
       name="ProfileMain" 
-      component={ProfileScreen}
+      component={ProfileScreenPlaceholder}
       options={{
         title: 'Mi Perfil',
         headerRight: () => (
@@ -306,7 +189,7 @@ const ProfileStackNavigator = () => (
     />
     <Stack.Screen 
       name="Settings" 
-      component={SettingsScreen}
+      component={SettingsScreenPlaceholder}
       options={{
         title: 'Configuración',
       }}
@@ -315,11 +198,102 @@ const ProfileStackNavigator = () => (
 );
 
 // =============================================================================
+// NAVEGADOR DE TABS PRINCIPAL
+// =============================================================================
+
+const MainTabNavigator = () => {
+  const { user } = useAuth();
+  
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+
+          if (route.name === 'Dashboard') {
+            iconName = focused ? 'analytics' : 'analytics-outline';
+          } else if (route.name === 'Formularios') {
+            iconName = focused ? 'document-text' : 'document-text-outline';
+          } else if (route.name === 'Reportes') {
+            iconName = focused ? 'bar-chart' : 'bar-chart-outline';
+          } else if (route.name === 'Perfil') {
+            iconName = focused ? 'person' : 'person-outline';
+          }
+
+          return (
+            <View style={focused ? styles.activeIcon : null}>
+              <Ionicons name={iconName} size={size} color={color} />
+              {/* Indicador de verificación */}
+              {route.name === 'Perfil' && user && !user.verificado && (
+                <View style={styles.warningBadge}>
+                  <Ionicons name="warning" size={12} color="#FFFFFF" />
+                </View>
+              )}
+            </View>
+          );
+        },
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.inactive,
+        tabBarStyle: {
+          backgroundColor: Colors.surface,
+          borderTopWidth: 1,
+          borderTopColor: Colors.border,
+          paddingBottom: Platform.OS === 'ios' ? 20 : 8,
+          paddingTop: 8,
+          height: Platform.OS === 'ios' ? 88 : 68,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+        },
+        headerShown: false,
+      })}
+    >
+      <Tab.Screen 
+        name="Dashboard" 
+        component={DashboardStackNavigator}
+        options={{
+          tabBarLabel: 'Inicio',
+        }}
+      />
+      <Tab.Screen 
+        name="Formularios" 
+        component={FormulariosStackNavigator}
+        options={{
+          tabBarLabel: 'FRI',
+        }}
+      />
+      <Tab.Screen 
+        name="Reportes" 
+        component={ReportsStackNavigator}
+        options={{
+          tabBarLabel: 'Reportes',
+        }}
+      />
+      <Tab.Screen 
+        name="Perfil" 
+        component={ProfileStackNavigator}
+        options={{
+          tabBarLabel: 'Perfil',
+          tabBarBadge: user && !user.verificado ? '!' : null,
+        }}
+      />
+    </Tab.Navigator>
+  );
+};
+
+// =============================================================================
 // NAVEGADOR PRINCIPAL DE LA APLICACIÓN
 // =============================================================================
 
 const AppNavigator = () => {
   const { isAuthenticated, loading, user } = useAuth();
+
+  console.log('🔍 AppNavigator - Estado:', {
+    isAuthenticated,
+    loading,
+    userExists: !!user
+  });
 
   // Mostrar pantalla de carga mientras se verifica la autenticación
   if (loading) {
@@ -335,69 +309,21 @@ const AppNavigator = () => {
     );
   }
 
-  // Si está autenticado, mostrar navegación principal
-  return <MainTabNavigator />;
-};
-
-// =============================================================================
-// NAVEGADOR CON DRAWER (OPCIONAL - PARA FUNCIONES AVANZADAS)
-// =============================================================================
-
-export const DrawerNavigator = () => {
-  const { user, logout } = useAuth();
-
+  // Si está autenticado, mostrar la aplicación principal
   return (
-    <Drawer.Navigator
-      screenOptions={{
-        drawerStyle: {
-          backgroundColor: Colors.surface,
-          width: 280,
-        },
-        drawerActiveTintColor: Colors.primary,
-        drawerInactiveTintColor: Colors.textSecondary,
-        drawerLabelStyle: {
-          fontSize: 16,
-          fontWeight: '600',
-          marginLeft: -20,
-        },
-        headerShown: false,
-      }}
-    >
-      <Drawer.Screen 
-        name="MainTabs" 
-        component={MainTabNavigator}
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+      
+      {/* Pantallas modales que se pueden abrir desde cualquier tab */}
+      <Stack.Screen 
+        name="VerificationModal" 
+        component={UserVerificationScreen}
         options={{
-          title: 'Sistema ANM FRI',
-          drawerIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
-          ),
+          presentation: 'modal',
+          headerShown: false,
         }}
       />
-      
-      {user?.rol === 'ADMIN' && (
-        <Drawer.Screen 
-          name="Admin" 
-          component={SettingsScreen}
-          options={{
-            title: 'Administración',
-            drawerIcon: ({ color, size }) => (
-              <Ionicons name="settings-outline" size={size} color={color} />
-            ),
-          }}
-        />
-      )}
-      
-      <Drawer.Screen 
-        name="Help" 
-        component={SettingsScreen}
-        options={{
-          title: 'Ayuda y Soporte',
-          drawerIcon: ({ color, size }) => (
-            <Ionicons name="help-circle-outline" size={size} color={color} />
-          ),
-        }}
-      />
-    </Drawer.Navigator>
+    </Stack.Navigator>
   );
 };
 
@@ -414,57 +340,41 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
+  warningBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: Colors.warning,
+    borderRadius: 8,
+    width: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+    padding: 32,
+  },
+  placeholderIcon: {
+    marginBottom: 24,
+    opacity: 0.7,
+  },
+  placeholderTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: Colors.text,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  placeholderSubtitle: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
 });
 
 export default AppNavigator;
-
-// =============================================================================
-// COMANDOS DE INSTALACIÓN DE DEPENDENCIAS
-// =============================================================================
-
-/*
-Para usar este navegador, instala las dependencias necesarias:
-
-cd 02_CODIGO_APLICACION/anm-fri-mobile/
-
-# Dependencias principales
-npm install @react-navigation/native @react-navigation/stack @react-navigation/bottom-tabs @react-navigation/drawer
-
-# Dependencias de React Native
-npm install react-native-screens react-native-safe-area-context react-native-gesture-handler react-native-reanimated
-
-# Para Expo
-expo install react-native-screens react-native-safe-area-context react-native-gesture-handler react-native-reanimated
-
-# AsyncStorage para persistencia
-npm install @react-native-async-storage/async-storage
-
-# Vector Icons (si no está instalado)
-expo install @expo/vector-icons
-
-# Si usas React Native CLI (no Expo), también necesitas:
-cd ios && pod install && cd .. # Solo en iOS
-*/
-
-// =============================================================================
-// CONFIGURACIÓN EN App.js
-// =============================================================================
-
-/*
-En tu archivo principal App.js, usa así:
-
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { AuthProvider } from './src/contexts/AuthContext';
-import AppNavigator from './src/navigation/AppNavigator';
-
-export default function App() {
-  return (
-    <AuthProvider>
-      <NavigationContainer>
-        <AppNavigator />
-      </NavigationContainer>
-    </AuthProvider>
-  );
-}
-*/

@@ -1,6 +1,6 @@
 // ==========================================
 // 02_CODIGO_APLICACION/anm-fri-mobile/src/screens/verification/UserVerificationScreen.js
-// Pantalla de verificación de usuarios para React Native
+// Pantalla de Verificación de Usuario para App Móvil
 // ==========================================
 
 import React, { useState, useEffect } from 'react';
@@ -9,540 +9,706 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
+  StyleSheet,
   Alert,
   ActivityIndicator,
-  StyleSheet,
+  ScrollView,
   SafeAreaView,
   StatusBar,
+  Platform,
+  Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../../contexts/AuthContext';
+import authService from '../../services/authService';
 
-const UserVerificationScreen = ({ navigation }) => {
+const { width, height } = Dimensions.get('window');
+
+const UserVerificationScreen = ({ navigation, route }) => {
+  // Estados del formulario
   const [formData, setFormData] = useState({
+    numeroDocumento: '',
     telefono: '',
-    tituloMinero: '',
+    ubicacion: '',
     codigoVerificacion: ''
   });
   
-  const [codeGenerated, setCodeGenerated] = useState(false);
+  // Estados de control
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [user, setUser] = useState(null);
+  const [codeGenerated, setCodeGenerated] = useState(false);
+  const [step, setStep] = useState(1); // 1: datos básicos, 2: código verificación
+  const [errors, setErrors] = useState({});
+  const [userInfo, setUserInfo] = useState(null);
+
+  const { user } = useAuth();
 
   useEffect(() => {
-    loadUserData();
-  }, []);
+    if (user) {
+      setUserInfo(user);
+      // Pre-llenar algunos campos si están disponibles
+      setFormData(prev => ({
+        ...prev,
+        // Si el usuario tiene datos, pre-llenarlos
+      }));
+    }
+  }, [user]);
 
-  const loadUserData = async () => {
-    try {
-      const userData = await AsyncStorage.getItem('user');
-      if (userData) {
-        setUser(JSON.parse(userData));
-      }
-    } catch (error) {
-      console.error('Error cargando datos de usuario:', error);
+  // =============================================================================
+  // 🔐 FUNCIONES DE VERIFICACIÓN
+  // =============================================================================
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // Limpiar error del campo al escribir
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: null }));
     }
   };
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const validateStep1 = () => {
+    const newErrors = {};
+    
+    if (!formData.numeroDocumento.trim()) {
+      newErrors.numeroDocumento = 'El número de documento es requerido';
+    } else if (formData.numeroDocumento.length < 6) {
+      newErrors.numeroDocumento = 'Debe tener al menos 6 caracteres';
+    }
+    
+    if (!formData.telefono.trim()) {
+      newErrors.telefono = 'El teléfono es requerido';
+    } else if (formData.telefono.length < 10) {
+      newErrors.telefono = 'Debe tener al menos 10 dígitos';
+    }
+    
+    if (!formData.ubicacion.trim()) {
+      newErrors.ubicacion = 'La ubicación es requerida';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  const generateCode = async () => {
+  const submitStep1 = async () => {
+    if (!validateStep1()) return;
+
     setLoading(true);
     try {
-      const token = await AsyncStorage.getItem('token');
+      // Aquí puedes hacer validaciones adicionales con el backend
+      setStep(2);
+      Alert.alert(
+        '✅ Datos Verificados',
+        'Procederemos a generar un código de verificación.',
+        [{ text: 'Continuar' }]
+      );
+    } catch (error) {
+      Alert.alert('❌ Error', 'Error validando los datos');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateVerificationCode = async () => {
+    setLoading(true);
+    try {
+      const response = await authService.generateVerificationCode();
       
-      const response = await fetch('http://localhost:3000/api/verification/generate-code', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (response.success) {
         setCodeGenerated(true);
         Alert.alert(
-          'Código Enviado',
-          `Código de verificación: ${data.data.codigo || '123456'}\n(Solo visible en desarrollo)`,
-          [{ text: 'OK' }]
+          '📨 Código Enviado',
+          `Se ha enviado un código de verificación a tu ${formData.telefono ? 'teléfono' : 'email'} registrado.`,
+          [{ text: 'Entendido' }]
         );
       } else {
-        Alert.alert('Error', data.message || 'Error generando código');
+        Alert.alert('❌ Error', response.message);
       }
     } catch (error) {
-      console.error('Error:', error);
-      Alert.alert('Error', 'Error de conexión');
+      Alert.alert('❌ Error', 'No se pudo generar el código de verificación');
     } finally {
       setLoading(false);
     }
   };
 
   const submitVerification = async () => {
+    if (!formData.codigoVerificacion || formData.codigoVerificacion.length !== 6) {
+      Alert.alert('❌ Error', 'Ingresa el código de 6 dígitos');
+      return;
+    }
+
     setLoading(true);
     try {
-      const token = await AsyncStorage.getItem('token');
-      
-      const response = await fetch('http://localhost:3000/api/verification/verify-identity', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+      const response = await authService.verifyIdentity({
+        ...formData,
+        codigoVerificacion: formData.codigoVerificacion
       });
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        setResult(data.data.verificacion);
-        
-        if (data.data.verificacion.puntuacionConfianza >= 70) {
-          Alert.alert(
-            '✅ Verificación Exitosa',
-            `Tu identidad ha sido verificada con una puntuación de ${data.data.verificacion.puntuacionConfianza}%`,
-            [{ text: 'Excelente!' }]
-          );
-        } else {
-          Alert.alert(
-            '⚠️ Verificación Incompleta',
-            `Puntuación: ${data.data.verificacion.puntuacionConfianza}%. Por favor, verifica tu información.`,
-            [{ text: 'Entendido' }]
-          );
-        }
+      if (response.success) {
+        Alert.alert(
+          '✅ Verificación Completada',
+          'Tu identidad ha sido verificada exitosamente. ¡Bienvenido al sistema!',
+          [
+            { 
+              text: 'Continuar', 
+              onPress: () => navigation.navigate('Dashboard')
+            }
+          ]
+        );
       } else {
-        Alert.alert('Error', data.message || 'Error en verificación');
+        Alert.alert('❌ Verificación Fallida', response.message);
       }
     } catch (error) {
-      console.error('Error:', error);
-      Alert.alert('Error', 'Error de conexión');
+      Alert.alert('❌ Error', 'Error en la verificación. Intenta nuevamente.');
     } finally {
       setLoading(false);
     }
   };
 
-  const getScoreColor = (score) => {
-    if (score >= 70) return '#10B981';
-    if (score >= 40) return '#F59E0B';
-    return '#EF4444';
-  };
+  // =============================================================================
+  // 🎨 COMPONENTES DE INTERFAZ
+  // =============================================================================
+
+  const renderHeader = () => (
+    <View style={styles.headerContainer}>
+      <StatusBar barStyle="light-content" backgroundColor="#2563EB" />
+      <SafeAreaView>
+        <View style={styles.headerContent}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          
+          <View style={styles.logoContainer}>
+            <View style={styles.logoCircle}>
+              <Ionicons name="shield-checkmark" size={32} color="#FFFFFF" />
+            </View>
+            <Text style={styles.logoText}>Verificación</Text>
+            <Text style={styles.logoSubtext}>Sistema de Seguridad ANM</Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+  );
+
+  const renderProgressIndicator = () => (
+    <View style={styles.progressContainer}>
+      <View style={styles.progressBar}>
+        <View style={[styles.progressStep, step >= 1 && styles.progressStepActive]}>
+          <Text style={[styles.progressStepText, step >= 1 && styles.progressStepTextActive]}>1</Text>
+        </View>
+        <View style={[styles.progressLine, step >= 2 && styles.progressLineActive]} />
+        <View style={[styles.progressStep, step >= 2 && styles.progressStepActive]}>
+          <Text style={[styles.progressStepText, step >= 2 && styles.progressStepTextActive]}>2</Text>
+        </View>
+      </View>
+      <View style={styles.progressLabels}>
+        <Text style={styles.progressLabel}>Datos</Text>
+        <Text style={styles.progressLabel}>Verificación</Text>
+      </View>
+    </View>
+  );
+
+  const renderUserInfo = () => (
+    userInfo && (
+      <View style={styles.userInfoCard}>
+        <Ionicons name="person-circle" size={48} color="#2563EB" />
+        <View style={styles.userInfoText}>
+          <Text style={styles.userInfoName}>{userInfo.nombre}</Text>
+          <Text style={styles.userInfoEmail}>{userInfo.email}</Text>
+          <Text style={styles.userInfoRole}>Rol: {userInfo.rol}</Text>
+        </View>
+      </View>
+    )
+  );
+
+  const renderStep1 = () => (
+    <View style={styles.stepContainer}>
+      <Text style={styles.stepTitle}>Verificación de Identidad</Text>
+      <Text style={styles.stepSubtitle}>Ingresa tus datos para verificar tu identidad</Text>
+
+      {renderUserInfo()}
+
+      {/* Número de Documento */}
+      <View style={styles.inputContainer}>
+        <Text style={styles.inputLabel}>📄 Número de Documento</Text>
+        <View style={[styles.inputWrapper, errors.numeroDocumento && styles.inputError]}>
+          <Ionicons name="card" size={20} color="#6B7280" style={styles.inputIcon} />
+          <TextInput
+            style={styles.textInput}
+            placeholder="Ej: 1234567890"
+            placeholderTextColor="#9CA3AF"
+            value={formData.numeroDocumento}
+            onChangeText={(value) => handleInputChange('numeroDocumento', value)}
+            keyboardType="numeric"
+          />
+        </View>
+        {errors.numeroDocumento && (
+          <Text style={styles.errorText}>{errors.numeroDocumento}</Text>
+        )}
+      </View>
+
+      {/* Teléfono */}
+      <View style={styles.inputContainer}>
+        <Text style={styles.inputLabel}>📱 Teléfono</Text>
+        <View style={[styles.inputWrapper, errors.telefono && styles.inputError]}>
+          <Ionicons name="call" size={20} color="#6B7280" style={styles.inputIcon} />
+          <TextInput
+            style={styles.textInput}
+            placeholder="Ej: 3001234567"
+            placeholderTextColor="#9CA3AF"
+            value={formData.telefono}
+            onChangeText={(value) => handleInputChange('telefono', value)}
+            keyboardType="phone-pad"
+          />
+        </View>
+        {errors.telefono && (
+          <Text style={styles.errorText}>{errors.telefono}</Text>
+        )}
+      </View>
+
+      {/* Ubicación */}
+      <View style={styles.inputContainer}>
+        <Text style={styles.inputLabel}>📍 Ubicación</Text>
+        <View style={[styles.inputWrapper, errors.ubicacion && styles.inputError]}>
+          <Ionicons name="location" size={20} color="#6B7280" style={styles.inputIcon} />
+          <TextInput
+            style={styles.textInput}
+            placeholder="Ej: Medellín, Antioquia"
+            placeholderTextColor="#9CA3AF"
+            value={formData.ubicacion}
+            onChangeText={(value) => handleInputChange('ubicacion', value)}
+          />
+        </View>
+        {errors.ubicacion && (
+          <Text style={styles.errorText}>{errors.ubicacion}</Text>
+        )}
+      </View>
+
+      {/* Botón Continuar */}
+      <TouchableOpacity 
+        style={[styles.primaryButton, loading && styles.buttonDisabled]}
+        onPress={submitStep1}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <>
+            <Text style={styles.primaryButtonText}>Continuar</Text>
+            <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+          </>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderStep2 = () => (
+    <View style={styles.stepContainer}>
+      <Text style={styles.stepTitle}>Código de Verificación</Text>
+      <Text style={styles.stepSubtitle}>Te enviaremos un código de seguridad</Text>
+
+      {renderUserInfo()}
+
+      {/* Información de contacto */}
+      <View style={styles.contactInfoCard}>
+        <Ionicons name="information-circle" size={24} color="#2563EB" />
+        <View style={styles.contactInfoText}>
+          <Text style={styles.contactInfoTitle}>Enviaremos el código a:</Text>
+          <Text style={styles.contactInfoValue}>📱 {formData.telefono}</Text>
+          <Text style={styles.contactInfoValue}>📧 {userInfo?.email}</Text>
+        </View>
+      </View>
+
+      {/* Botón Generar Código */}
+      <TouchableOpacity
+        style={[styles.generateButton, codeGenerated && styles.resentButton]}
+        onPress={generateVerificationCode}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <>
+            <Ionicons 
+              name={codeGenerated ? "refresh" : "send"} 
+              size={20} 
+              color="#FFFFFF" 
+            />
+            <Text style={styles.generateButtonText}>
+              {codeGenerated ? 'Reenviar Código' : 'Generar Código'}
+            </Text>
+          </>
+        )}
+      </TouchableOpacity>
+
+      {/* Campo Código de Verificación */}
+      {codeGenerated && (
+        <View style={styles.codeContainer}>
+          <Text style={styles.inputLabel}>🔑 Código de Verificación</Text>
+          <TextInput
+            style={styles.codeInput}
+            placeholder="123456"
+            placeholderTextColor="#9CA3AF"
+            value={formData.codigoVerificacion}
+            onChangeText={(value) => handleInputChange('codigoVerificacion', value)}
+            keyboardType="numeric"
+            maxLength={6}
+            textAlign="center"
+          />
+          <Text style={styles.codeHint}>
+            Código válido por 10 minutos. Revisa tu teléfono y email.
+          </Text>
+        </View>
+      )}
+
+      {/* Botón Verificar */}
+      {codeGenerated && (
+        <TouchableOpacity
+          style={[
+            styles.verifyButton,
+            (!formData.codigoVerificacion || loading) && styles.buttonDisabled
+          ]}
+          onPress={submitVerification}
+          disabled={!formData.codigoVerificacion || loading}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+              <Text style={styles.verifyButtonText}>Verificar Identidad</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      )}
+
+      {/* Botón Volver */}
+      <TouchableOpacity
+        style={styles.backStepButton}
+        onPress={() => setStep(1)}
+      >
+        <Ionicons name="arrow-back" size={20} color="#6B7280" />
+        <Text style={styles.backStepButtonText}>Volver a Datos</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  // =============================================================================
+  // 🎨 RENDERIZADO PRINCIPAL
+  // =============================================================================
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#2563EB" />
+    <View style={styles.container}>
+      {renderHeader()}
       
-      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerIcon}>
-            <Ionicons name="shield-checkmark" size={32} color="#fff" />
-          </View>
-          <Text style={styles.headerTitle}>Verificación de Usuario</Text>
-          <Text style={styles.headerSubtitle}>
-            Sistema de verificación de identidad ANM FRI
-          </Text>
-          
-          {user && (
-            <View style={[
-              styles.statusBadge,
-              { backgroundColor: user.verificado ? '#D1FAE5' : '#FEF3C7' }
-            ]}>
-              <Ionicons 
-                name={user.verificado ? "checkmark-circle" : "warning"} 
-                size={16} 
-                color={user.verificado ? '#065F46' : '#92400E'} 
-              />
-              <Text style={[
-                styles.statusText,
-                { color: user.verificado ? '#065F46' : '#92400E' }
-              ]}>
-                {user.verificado ? 'Verificado' : 'No Verificado'}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Información del Usuario */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>👤 Información del Usuario</Text>
-          {user && (
-            <View style={styles.userInfo}>
-              <Text style={styles.userDetail}>
-                <Text style={styles.label}>Nombre:</Text> {user.nombre}
-              </Text>
-              <Text style={styles.userDetail}>
-                <Text style={styles.label}>Email:</Text> {user.email}
-              </Text>
-              <Text style={styles.userDetail}>
-                <Text style={styles.label}>Rol:</Text> {user.rol}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Formulario de Verificación */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🔍 Datos de Verificación</Text>
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>📱 Número de Teléfono</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.telefono}
-              onChangeText={(value) => handleInputChange('telefono', value)}
-              placeholder="+57 300 123 4567"
-              keyboardType="phone-pad"
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>📄 Título Minero</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.tituloMinero}
-              onChangeText={(value) => handleInputChange('tituloMinero', value)}
-              placeholder="TM-12345-2024"
-              autoCapitalize="characters"
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[styles.button, styles.primaryButton]}
-            onPress={generateCode}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <>
-                <Ionicons 
-                  name={codeGenerated ? "refresh" : "mail"} 
-                  size={20} 
-                  color="#fff" 
-                />
-                <Text style={styles.buttonText}>
-                  {codeGenerated ? 'Reenviar Código' : 'Generar Código'}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          {codeGenerated && (
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>🔑 Código de Verificación</Text>
-              <TextInput
-                style={[styles.input, styles.codeInput]}
-                value={formData.codigoVerificacion}
-                onChangeText={(value) => handleInputChange('codigoVerificacion', value)}
-                placeholder="123456"
-                keyboardType="numeric"
-                maxLength={6}
-                textAlign="center"
-                placeholderTextColor="#9CA3AF"
-              />
-              <Text style={styles.helpText}>
-                Código enviado por SMS/Email. Válido por 10 minutos.
-              </Text>
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={[
-              styles.button, 
-              styles.successButton,
-              (!codeGenerated || !formData.codigoVerificacion || loading) && styles.disabledButton
-            ]}
-            onPress={submitVerification}
-            disabled={!codeGenerated || !formData.codigoVerificacion || loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Verificar Identidad</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Resultado */}
-        {result && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📊 Resultado de Verificación</Text>
-            
-            <View style={[
-              styles.resultContainer,
-              { backgroundColor: result.puntuacionConfianza >= 70 ? '#D1FAE5' : '#FEF3C7' }
-            ]}>
-              <View style={styles.resultHeader}>
-                <Ionicons 
-                  name={result.puntuacionConfianza >= 70 ? "checkmark-circle" : "warning"} 
-                  size={24} 
-                  color={result.puntuacionConfianza >= 70 ? '#065F46' : '#92400E'} 
-                />
-                <Text style={[
-                  styles.resultTitle,
-                  { color: result.puntuacionConfianza >= 70 ? '#065F46' : '#92400E' }
-                ]}>
-                  {result.puntuacionConfianza >= 70 ? 'Verificación Exitosa' : 'Verificación Incompleta'}
-                </Text>
-              </View>
-
-              <View style={styles.scoreContainer}>
-                <Text style={styles.scoreLabel}>Puntuación de Confianza:</Text>
-                <Text style={[
-                  styles.scoreValue,
-                  { color: getScoreColor(result.puntuacionConfianza) }
-                ]}>
-                  {result.puntuacionConfianza}%
-                </Text>
-              </View>
-
-              <View style={styles.progressBar}>
-                <View style={[
-                  styles.progressFill,
-                  { 
-                    width: `${result.puntuacionConfianza}%`,
-                    backgroundColor: getScoreColor(result.puntuacionConfianza)
-                  }
-                ]} />
-              </View>
-
-              <Text style={styles.levelBadge}>
-                Nivel: {result.nivelVerificacion}
-              </Text>
-
-              <View style={styles.detailsContainer}>
-                <Text style={styles.detailsTitle}>Detalles de Verificación:</Text>
-                {result.verificaciones && result.verificaciones.map((v, index) => (
-                  <View key={index} style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>
-                      {v.campo.replace(/([A-Z])/g, ' $1').toLowerCase()}:
-                    </Text>
-                    <Ionicons 
-                      name={v.verificado ? "checkmark-circle" : "close-circle"} 
-                      size={20} 
-                      color={v.verificado ? "#10B981" : "#EF4444"} 
-                    />
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
-        )}
+      <ScrollView 
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {renderProgressIndicator()}
+        
+        {step === 1 ? renderStep1() : renderStep2()}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
+
+// =============================================================================
+// 🎨 ESTILOS
+// =============================================================================
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
   },
-  scrollContainer: {
-    flex: 1,
-  },
-  header: {
+  headerContainer: {
     backgroundColor: '#2563EB',
-    padding: 24,
+    paddingBottom: 20,
+  },
+  headerContent: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    padding: 8,
+    marginBottom: 10,
+  },
+  logoContainer: {
     alignItems: 'center',
   },
-  headerIcon: {
+  logoCircle: {
     width: 64,
     height: 64,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 32,
-    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
-    marginBottom: 16,
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  headerTitle: {
+  logoText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'center',
-    marginBottom: 8,
+    color: '#FFFFFF',
+    marginBottom: 4,
   },
-  headerSubtitle: {
+  logoSubtext: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
-    marginBottom: 16,
   },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 6,
+  content: {
+    flex: 1,
+    marginTop: -10,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
-  statusText: {
-    fontSize: 14,
-    fontWeight: '500',
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
   },
-  section: {
-    backgroundColor: '#fff',
-    margin: 16,
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  progressContainer: {
+    marginBottom: 32,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 16,
-  },
-  userInfo: {
-    gap: 12,
-  },
-  userDetail: {
-    fontSize: 14,
-    color: '#374151',
-  },
-  label: {
-    fontWeight: '600',
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: 6,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#111827',
-    backgroundColor: '#fff',
-  },
-  codeInput: {
-    textAlign: 'center',
-    fontSize: 18,
-    fontFamily: 'monospace',
-    letterSpacing: 2,
-  },
-  helpText: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  button: {
+  progressBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 14,
-    borderRadius: 8,
-    gap: 8,
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  primaryButton: {
-    backgroundColor: '#3B82F6',
+  progressStep: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  successButton: {
-    backgroundColor: '#10B981',
+  progressStepActive: {
+    backgroundColor: '#2563EB',
   },
-  disabledButton: {
-    backgroundColor: '#9CA3AF',
-    opacity: 0.5,
+  progressStepText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#6B7280',
   },
-  buttonText: {
-    color: '#fff',
+  progressStepTextActive: {
+    color: '#FFFFFF',
+  },
+  progressLine: {
+    width: 60,
+    height: 2,
+    backgroundColor: '#E5E7EB',
+    marginHorizontal: 8,
+  },
+  progressLineActive: {
+    backgroundColor: '#2563EB',
+  },
+  progressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  progressLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  stepContainer: {
+    flex: 1,
+  },
+  stepTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  stepSubtitle: {
     fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  userInfoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F9FF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2563EB',
+  },
+  userInfoText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  userInfoName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  userInfoEmail: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  userInfoRole: {
+    fontSize: 14,
+    color: '#2563EB',
     fontWeight: '500',
   },
-  resultContainer: {
-    padding: 16,
-    borderRadius: 8,
+  inputContainer: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  resultHeader: {
+  inputError: {
+    borderColor: '#EF4444',
+  },
+  inputIcon: {
+    marginLeft: 16,
+    marginRight: 12,
+  },
+  textInput: {
+    flex: 1,
+    paddingVertical: 16,
+    paddingRight: 16,
+    fontSize: 16,
+    color: '#111827',
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
+  },
+  primaryButton: {
+    backgroundColor: '#2563EB',
+    borderRadius: 12,
+    paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
+    justifyContent: 'center',
+    marginTop: 8,
   },
-  resultTitle: {
+  primaryButtonText: {
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    marginRight: 8,
   },
-  scoreContainer: {
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  contactInfoCard: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    backgroundColor: '#F0FDF4',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderLeftWidth: 4,
+    borderLeftColor: '#10B981',
+  },
+  contactInfoText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  contactInfoTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
     marginBottom: 8,
   },
-  scoreLabel: {
+  contactInfoValue: {
     fontSize: 14,
-    fontWeight: '500',
+    color: '#6B7280',
+    marginBottom: 4,
   },
-  scoreValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  generateButton: {
+    backgroundColor: '#2563EB',
+    borderRadius: 12,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
   },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 4,
-    marginBottom: 12,
-    overflow: 'hidden',
+  resentButton: {
+    backgroundColor: '#10B981',
   },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
+  generateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
-  levelBadge: {
+  codeContainer: {
+    marginBottom: 24,
+  },
+  codeInput: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    fontSize: 24,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    letterSpacing: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 8,
     textAlign: 'center',
+  },
+  codeHint: {
     fontSize: 12,
-    fontWeight: '500',
-    color: '#374151',
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  verifyButton: {
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 16,
   },
-  detailsContainer: {
-    gap: 8,
+  verifyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
-  detailsTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  detailItem: {
+  backStepButton: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    borderRadius: 6,
+    justifyContent: 'center',
+    paddingVertical: 12,
   },
-  detailLabel: {
-    fontSize: 14,
-    color: '#374151',
-    textTransform: 'capitalize',
+  backStepButtonText: {
+    color: '#6B7280',
+    fontSize: 16,
+    marginLeft: 8,
   },
 });
 
