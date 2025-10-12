@@ -1,7 +1,11 @@
 {
-  "name": "anm-fri-mobile",
+  "name": "tu-empresa-fri-mobile",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "description": "App móvil del sistema ANM FRI para TU EMPRESA MINERA",
+  "author": "TU EMPRESA MINERA",
+  "license": "MIT",
+  "keywords": ["minería", "anm", "fri", "reportes", "mobile"],
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
