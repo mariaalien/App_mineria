@@ -1,0 +1,1 @@
+Código desarrollado por la empresa CTGLOBAL, durante la pasantía de las estudiantes: María Camila Rodríguez y Paula Alejandra Arias, para cumplir con la modalidad de grado para la universidad distrital francisco josé de caldas.
