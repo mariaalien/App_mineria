@@ -142,6 +142,9 @@ model Usuario {
   friInventarioMaquinaria FRIInventarioMaquinaria[]
   friCapacidadTecnologica FRICapacidadTecnologica[]
   friProyecciones         FRIProyecciones[]
+  
+  // Relaciones con Producción
+  productionEntries       ProductionEntry[]
 
   @@map("usuarios")
 }
@@ -379,6 +382,40 @@ model FRIProyecciones {
   updatedAt                       DateTime @updatedAt @map("updated_at")
 
   @@map("fri_proyecciones")
+}
+
+// =============================================================================
+// REGISTRO DE PRODUCCIÓN MINERA
+// =============================================================================
+
+model ProductionEntry {
+  id                    String   @id @default(uuid())
+  nombreOperador        String   @map("nombre_operador")
+  ubicacion             String
+  tituloMinero          String   @map("titulo_minero")
+  tipoMineral           String   @map("tipo_mineral")
+  cantidad              Decimal  @db.Decimal(15,4)
+  observaciones         String?  @default("")
+  latitud               Decimal  @db.Decimal(10,8)
+  longitud              Decimal  @db.Decimal(11,8)
+  fechaHora             DateTime @map("fecha_hora")
+  esRepeticion          Boolean  @default(false) @map("es_repeticion")
+  entradaAnteriorId     String?  @map("entrada_anterior_id")
+  operadorId            String   @map("operador_id")
+  savedOffline          Boolean  @default(false) @map("saved_offline")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  operador              Usuario  @relation(fields: [operadorId], references: [id], onDelete: Cascade)
+  entradaAnterior       ProductionEntry? @relation("ProductionRepetitions", fields: [entradaAnteriorId], references: [id])
+  repeticiones          ProductionEntry[] @relation("ProductionRepetitions")
+
+  @@index([operadorId])
+  @@index([fechaHora])
+  @@index([tituloMinero])
+  @@index([tipoMineral])
+  @@map("production_entries")
 }
 
 // =============================================================================

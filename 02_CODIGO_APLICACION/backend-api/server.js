@@ -551,6 +551,12 @@ app.use('/api/reports/generator', reportGeneratorRoutes);
 app.use('/api/analytics', advancedAnalyticsRoutes);
 app.use('/api/export', exportAdvancedRoutes);
 
+// =============================================================================
+// RUTAS DE PRODUCCIÓN MINERA
+// =============================================================================
+const productionRoutes = require('./routes/production');
+app.use('/api/production', productionRoutes);
+
 // Global Error Handler (debe ir al final)
 app.use(globalErrorHandler);
 
