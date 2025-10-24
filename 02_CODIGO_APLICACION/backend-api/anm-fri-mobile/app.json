@@ -1,35 +1,53 @@
 {
   "expo": {
-    "name": "TuMina - ANM FRI",
-    "slug": "tumina-anm-fri",
+    "name": "TU MINA",
+    "slug": "anm-fri-mineria",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
     "splash": {
-      "backgroundColor": "#4CAF50",
-      "resizeMode": "contain"
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#2E7D32"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tumina.anmfri"
+      "bundleIdentifier": "com.anm.frimineria",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "La app necesita tu ubicación para registrar la producción minera",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "La app necesita tu ubicación para registrar la producción minera",
+        "NSCameraUsageDescription": "La app necesita acceso a la cámara para tomar fotos de la mina"
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#4CAF50"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#2E7D32"
       },
-      "package": "com.tumina.anmfri"
+      "package": "com.anm.frimineria",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
-      "bundler": "metro",
-      "name": "TuMina - ANM FRI Mobile",
-      "shortName": "TuMina FRI",
-      "description": "Sistema de reportes mineros TuMina para ANM",
-      "themeColor": "#4CAF50",
-      "backgroundColor": "#4CAF50"
+      "favicon": "./assets/icon.png"
     },
-    "plugins": []
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permitir a ANM FRI usar tu ubicación para registrar la producción minera."
+        }
+      ]
+    ]
   }
 }

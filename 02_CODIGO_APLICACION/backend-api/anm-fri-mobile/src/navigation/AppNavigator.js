@@ -297,9 +297,6 @@ const MainTabNavigator = () => {
             case 'FRI':
               iconName = focused ? 'document-text' : 'document-text-outline';
               break;
-            case 'Explorar':
-              iconName = focused ? 'search' : 'search-outline';
-              break;
             case 'Dashboard':
               iconName = focused ? 'stats-chart' : 'stats-chart-outline';
               break;

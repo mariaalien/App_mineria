@@ -1,9 +1,9 @@
 {
-  "name": "tu-empresa-fri-mobile",
+  "name": "CTGLOBAL-fri-mobile",
   "main": "expo-router/entry",
   "version": "1.0.0",
-  "description": "App móvil del sistema ANM FRI para TU EMPRESA MINERA",
-  "author": "TU EMPRESA MINERA",
+  "description": "App móvil de gestión de información para CTGLOBAL",
+  "author": "ctglobal",
   "license": "MIT",
   "keywords": ["minería", "anm", "fri", "reportes", "mobile"],
   "scripts": {
