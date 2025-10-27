@@ -2,6 +2,7 @@
   "expo": {
     "name": "TU MINA",
     "slug": "anm-fri-mineria",
+    "scheme": "anm-fri",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
